@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Resume Analyzer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green:  #4ade80;
+      --purple: #818cf8;
+      --yellow: #facc15;
+      --red:    #f87171;
+      --teal:   #34d399;
+      --bg:     #060d18;
+      --surface:#0f172a;
+      --border: #1e293b;
+      --muted:  #64748b;
+      --text:   #94a3b8;
+    }
+
+    body {
+      font-family: 'DM Mono', monospace;
+      background: radial-gradient(ellipse at 20% 10%, #0c1a2e 0%, #060d18 60%, #020408 100%);
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    /* ── SCREENS ── */
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    /* ── UPLOAD SCREEN ── */
+    #upload-screen { max-width: 520px; margin: 0 auto; }
+
+    .header { text-align: center; margin-bottom: 48px; }
+    .header .label { font-size: 11px; color: var(--green); letter-spacing: 4px; margin-bottom: 8px; }
+    .header h1 {
+      font-family: 'Bebas Neue', cursive;
+      font-size: clamp(42px, 8vw, 72px);
+      line-height: 1; letter-spacing: 3px; color: #f1f5f9;
+    }
+    .header h1 span { color: var(--green); }
+    .header p { color: var(--muted); margin-top: 12px; font-size: 13px; letter-spacing: 1px; }
+
+    #drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 20px;
+      padding: 52px 32px;
+      text-align: center;
+      cursor: pointer;
+      transition: all .3s;
+      background: rgba(15,23,42,.6);
+    }
+    #drop-zone:hover, #drop-zone.drag-over {
+      border-color: var(--green);
+      background: rgba(74,222,128,.04);
+      box-shadow: 0 0 30px rgba(74,222,128,.1);
+    }
+    #drop-zone.has-file {
+      border-color: var(--green);
+      background: rgba(74,222,128,.03);
+      box-shadow: 0 0 30px rgba(74,222,128,.1);
+    }
+    #drop-zone .icon { font-size: 44px; margin-bottom: 16px; }
+    #drop-zone .title {
+      font-family: 'Bebas Neue', cursive;
+      font-size: 22px; color: #94a3b8; letter-spacing: 2px;
+    }
+    #drop-zone .sub { font-size: 12px; color: #475569; margin-top: 6px; }
+    #file-name { font-family: 'Bebas Neue', cursive; font-size: 20px; color: var(--green); letter-spacing: 2px; }
+    #file-size { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+    #analyze-btn {
+      display: none;
+      margin-top: 20px; width: 100%; padding: 16px;
+      background: linear-gradient(135deg, #4ade80, #22c55e);
+      border: none; border-radius: 12px; cursor: pointer;
+      font-family: 'Bebas Neue', cursive; font-size: 18px;
+      letter-spacing: 3px; color: #020408;
+      box-shadow: 0 0 24px rgba(74,222,128,.35);
+      transition: transform .15s, box-shadow .15s;
+    }
+    #analyze-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 36px rgba(74,222,128,.5);
+    }
+
+    .features {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 32px;
+    }
+    .feature-item {
+      background: #0a1628; border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px 16px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .feature-item .fi { font-size: 20px; }
+    .feature-item .fl {
+      font-family: 'Bebas Neue', cursive; font-size: 14px;
+      color: var(--muted); letter-spacing: 2px;
+    }
+
+    /* ── LOADING SCREEN ── */
+    #loading-screen {
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      min-height: 80vh; text-align: center;
+    }
+    #loading-screen.active { display: flex; }
+    .spin { font-size: 48px; margin-bottom: 24px; animation: spin 2s linear infinite; display: inline-block; }
+    .loading-title {
+      font-family: 'Bebas Neue', cursive; font-size: 28px;
+      color: var(--green); letter-spacing: 3px;
+    }
+    #loading-msg { color: var(--muted); margin-top: 8px; font-size: 13px; letter-spacing: 1px; }
+    .dots { display: flex; gap: 8px; justify-content: center; margin-top: 32px; }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--green); animation: bounce 1.2s infinite;
+    }
+    .dot:nth-child(2) { animation-delay: .2s; }
+    .dot:nth-child(3) { animation-delay: .4s; }
+
+    /* ── ERROR SCREEN ── */
+    #error-screen {
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      min-height: 80vh; text-align: center;
+    }
+    #error-screen.active { display: flex; }
+    .error-icon { font-size: 52px; margin-bottom: 16px; }
+    .error-title { font-family: 'Bebas Neue', cursive; font-size: 28px; color: var(--red); letter-spacing: 2px; }
+    #error-msg { color: var(--muted); font-size: 13px; margin-top: 8px; max-width: 400px; }
+    .retry-btn {
+      margin-top: 24px; padding: 12px 32px;
+      background: var(--green); border: none; border-radius: 10px;
+      cursor: pointer; font-family: 'Bebas Neue', cursive;
+      font-size: 16px; letter-spacing: 2px; color: #020408;
+    }
+
+    /* ── RESULT SCREEN ── */
+    #result-screen { max-width: 820px; margin: 0 auto; }
+
+    .result-header {
+      display: flex; justify-content: space-between;
+      align-items: center; margin-bottom: 24px;
+    }
+    .result-header .label { font-size: 11px; color: var(--green); letter-spacing: 4px; }
+    .result-header h2 {
+      font-family: 'Bebas Neue', cursive; font-size: 32px;
+      margin-top: 4px; letter-spacing: 2px;
+    }
+    .new-scan-btn {
+      padding: 8px 18px; background: transparent;
+      border: 1px solid #334155; border-radius: 8px;
+      cursor: pointer; color: var(--muted); font-family: 'DM Mono', monospace; font-size: 12px;
+      white-space: nowrap;
+    }
+    .new-scan-btn:hover { border-color: var(--green); color: var(--green); }
+
+    /* Badges */
+    .badges { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+    .badge {
+      padding: 5px 14px; border-radius: 99px;
+      font-size: 11px; letter-spacing: 1px;
+    }
+    .badge-green { background: rgba(74,222,128,.1); border: 1px solid rgba(74,222,128,.3); color: var(--green); }
+    .badge-purple { background: rgba(129,140,248,.1); border: 1px solid rgba(129,140,248,.3); color: var(--purple); }
+
+    /* Red Flags */
+    #red-flags-box {
+      background: rgba(248,113,113,.08); border: 1px solid rgba(248,113,113,.3);
+      border-radius: 12px; padding: 14px 18px; margin-bottom: 16px;
+    }
+    .rf-title { font-family: 'Bebas Neue', cursive; font-size: 14px; color: var(--red); letter-spacing: 2px; margin-bottom: 8px; }
+    .rf-item { font-size: 13px; color: #fca5a5; line-height: 1.7; }
+
+    /* Card */
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 16px; padding: 20px 22px;
+    }
+    .card-header {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 14px; border-bottom: 1px solid var(--border); padding-bottom: 12px;
+    }
+    .card-title {
+      font-family: 'Bebas Neue', cursive; font-size: 16px; letter-spacing: 2px;
+    }
+
+    /* Grid layouts */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    .top-grid { display: grid; grid-template-columns: auto 1fr; gap: 16px; margin-bottom: 16px; }
+    .score-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 16px; padding: 24px 28px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .score-col { display: flex; flex-direction: column; gap: 16px; }
+
+    /* Score Ring */
+    .ring-wrap { position: relative; width: 140px; height: 140px; }
+    .ring-wrap svg { transform: rotate(-90deg); }
+    .ring-overlay {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    .ring-score { font-family: 'Bebas Neue', cursive; font-size: 36px; line-height: 1; }
+    .ring-label { font-size: 11px; color: var(--muted); letter-spacing: 2px; }
+    .ring-grade {
+      font-family: 'Bebas Neue', cursive; font-size: 26px;
+      letter-spacing: 2px; text-align: center; margin-top: 6px;
+    }
+    .score-block { display: flex; flex-direction: column; align-items: center; }
+
+    /* Section bars */
+    .bar-row { margin-bottom: 10px; }
+    .bar-top { display: flex; justify-content: space-between; margin-bottom: 4px; }
+    .bar-key { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
+    .bar-val { font-size: 11px; }
+    .bar-bg { height: 4px; background: var(--border); border-radius: 99px; }
+    .bar-fill { height: 100%; border-radius: 99px; transition: width 1s ease; }
+
+    /* Lists */
+    .result-list { padding-left: 16px; }
+    .result-list li { color: var(--text); font-size: 13px; line-height: 1.85; margin-bottom: 4px; }
+    .result-ol { padding-left: 16px; }
+    .result-ol li { color: var(--text); font-size: 13px; line-height: 1.85; margin-bottom: 4px; }
+
+    /* Tags */
+    .tags-wrap { display: flex; flex-wrap: wrap; gap: 4px; }
+    .tag {
+      display: inline-block; padding: 3px 10px; border-radius: 99px;
+      background: #1a1800; font-size: 11px; color: #e2e8f0;
+      border: 1px solid #475569;
+    }
+    .tags-note { font-size: 11px; color: #475569; margin-top: 10px; }
+
+    /* Quick wins */
+    .qw-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+    .qw-item {
+      background: rgba(52,211,153,.06); border: 1px solid rgba(52,211,153,.2);
+      border-radius: 10px; padding: 10px 14px;
+      font-size: 13px; color: var(--text); line-height: 1.6;
+    }
+    .qw-num { font-family: 'Bebas Neue', cursive; font-size: 15px; color: var(--teal); letter-spacing: 1px; }
+
+    /* Footer */
+    .footer { text-align: center; margin-top: 28px; color: #334155; font-size: 11px; letter-spacing: 2px; }
+
+    /* Animations */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes bounce { 0%,80%,100%{ transform: scale(0); } 40%{ transform: scale(1); } }
+
+    /* Responsive */
+    @media (max-width: 620px) {
+      .top-grid, .grid-2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ══ UPLOAD SCREEN ══════════════════════════════════════════════ -->
+  <div id="upload-screen" class="screen active">
+    <div class="header">
+      <div class="label">AI-POWERED</div>
+      <h1>RESUME<span> ANALYZER</span></h1>
+      <p>INSTANT ATS SCORE · STRENGTHS · WEAKNESSES · KEYWORD GAPS</p>
+    </div>
+
+    <div id="drop-zone">
+      <div class="icon" id="drop-icon">⬆️</div>
+      <div id="drop-title" class="title">DROP YOUR RESUME HERE</div>
+      <div id="drop-sub" class="sub">or click to browse · PDF only</div>
+      <div id="file-name" style="display:none"></div>
+      <div id="file-size" style="display:none"></div>
+    </div>
+    <input type="file" id="file-input" accept=".pdf" style="display:none"/>
+
+    <button id="analyze-btn">ANALYZE RESUME →</button>
+
+    <div class="features">
+      <div class="feature-item"><span class="fi">🎯</span><span class="fl">ATS SCORE</span></div>
+      <div class="feature-item"><span class="fi">💪</span><span class="fl">STRENGTHS</span></div>
+      <div class="feature-item"><span class="fi">⚠️</span><span class="fl">WEAKNESSES</span></div>
+      <div class="feature-item"><span class="fi">🔑</span><span class="fl">MISSING KEYWORDS</span></div>
+    </div>
+  </div>
+
+  <!-- ══ LOADING SCREEN ═════════════════════════════════════════════ -->
+  <div id="loading-screen" class="screen">
+    <span class="spin">⚙️</span>
+    <div class="loading-title">ANALYZING YOUR RESUME</div>
+    <div id="loading-msg">Extracting text from PDF...</div>
+    <div class="dots">
+      <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+    </div>
+  </div>
+
+  <!-- ══ ERROR SCREEN ═══════════════════════════════════════════════ -->
+  <div id="error-screen" class="screen">
+    <div class="error-icon">❌</div>
+    <div class="error-title">ANALYSIS FAILED</div>
+    <div id="error-msg"></div>
+    <button class="retry-btn" onclick="showScreen('upload')">TRY AGAIN</button>
+  </div>
+
+  <!-- ══ RESULT SCREEN ══════════════════════════════════════════════ -->
+  <div id="result-screen" class="screen">
+
+    <div class="result-header">
+      <div>
+        <div class="label">ANALYSIS COMPLETE</div>
+        <h2>YOUR RESUME REPORT</h2>
+      </div>
+      <button class="new-scan-btn" onclick="showScreen('upload')">← NEW SCAN</button>
+    </div>
+
+    <!-- Badges -->
+    <div class="badges" id="badges"></div>
+
+    <!-- Red Flags -->
+    <div id="red-flags-box" style="display:none">
+      <div class="rf-title">🚨 RED FLAGS — FIX IMMEDIATELY</div>
+      <div id="red-flags-list"></div>
+    </div>
+
+    <!-- Score + Summary + Section Scores -->
+    <div class="top-grid">
+      <div class="score-card">
+        <div class="score-block">
+          <div class="ring-wrap">
+            <svg width="140" height="140" id="score-svg">
+              <circle cx="70" cy="70" r="54" fill="none" stroke="#1e293b" stroke-width="10"/>
+              <circle id="score-ring" cx="70" cy="70" r="54" fill="none"
+                stroke="#4ade80" stroke-width="10"
+                stroke-dasharray="339.29" stroke-dashoffset="339.29"
+                stroke-linecap="round"
+                style="transition: stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1)"/>
+            </svg>
+            <div class="ring-overlay">
+              <div class="ring-score" id="score-num">0</div>
+              <div class="ring-label">ATS SCORE</div>
+            </div>
+          </div>
+          <div class="ring-grade" id="score-grade">—</div>
+        </div>
+      </div>
+
+      <div class="score-col">
+        <div class="card">
+          <div class="card-header">
+            <span>📋</span>
+            <span class="card-title" style="color:var(--green)">EXECUTIVE SUMMARY</span>
+          </div>
+          <p id="summary-text" style="font-size:13px;color:var(--text);line-height:1.8"></p>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <span>📊</span>
+            <span class="card-title" style="color:var(--green)">SECTION SCORES</span>
+          </div>
+          <div id="section-bars"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Strengths + Weaknesses -->
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header">
+          <span>💪</span><span class="card-title" style="color:var(--green)">STRENGTHS</span>
+        </div>
+        <ul class="result-list" id="strengths-list"></ul>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span>⚠️</span><span class="card-title" style="color:var(--red)">WEAKNESSES</span>
+        </div>
+        <ul class="result-list" id="weaknesses-list"></ul>
+      </div>
+    </div>
+
+    <!-- Keywords + Suggestions -->
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header">
+          <span>🔑</span><span class="card-title" style="color:var(--yellow)">MISSING ATS KEYWORDS</span>
+        </div>
+        <div class="tags-wrap" id="keywords-wrap"></div>
+        <div class="tags-note">Weave these naturally into your experience bullets</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span>💡</span><span class="card-title" style="color:var(--purple)">DEEP-DIVE SUGGESTIONS</span>
+        </div>
+        <ol class="result-ol" id="suggestions-list"></ol>
+      </div>
+    </div>
+
+    <!-- Quick Wins -->
+    <div class="card" id="quick-wins-card" style="margin-bottom:16px">
+      <div class="card-header">
+        <span>⚡</span><span class="card-title" style="color:var(--teal)">QUICK WINS — DO THESE RIGHT NOW</span>
+      </div>
+      <div class="qw-grid" id="quick-wins-grid"></div>
+    </div>
+
+    <div class="footer">POWERED BY groq · BUILT WITH HTML, CSS & JAVASCRIPT</div>
+  </div>
+
+  <!-- ══ SCRIPT ═════════════════════════════════════════════════════ -->
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    let selectedFile = null;
+
+    // ── Screen manager ──────────────────────────────────────────────
+    function showScreen(name) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(name + '-screen').classList.add('active');
+    }
+
+    // ── File handling ───────────────────────────────────────────────
+    const dropZone  = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault(); dropZone.classList.remove('drag-over');
+      setFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', e => setFile(e.target.files[0]));
+
+    function setFile(file) {
+      if (!file || file.type !== 'application/pdf') return;
+      selectedFile = file;
+      dropZone.classList.add('has-file');
+      document.getElementById('drop-icon').textContent = '📄';
+      document.getElementById('drop-title').style.display = 'none';
+      document.getElementById('drop-sub').style.display  = 'none';
+      const fn = document.getElementById('file-name');
+      const fs = document.getElementById('file-size');
+      fn.textContent = file.name;
+      fs.textContent = (file.size / 1024).toFixed(1) + ' KB · Click to change';
+      fn.style.display = 'block';
+      fs.style.display = 'block';
+      document.getElementById('analyze-btn').style.display = 'block';
+    }
+
+    // ── Analyze ─────────────────────────────────────────────────────
+    document.getElementById('analyze-btn').addEventListener('click', analyze);
+
+    async function analyze() {
+      if (!selectedFile) return;
+      showScreen('loading');
+      setLoading('Extracting text from PDF...');
+      try {
+        const text = await extractTextFromPDF(selectedFile);
+        if (!text.trim()) throw new Error('Could not extract text. Please use a text-based PDF.');
+        setLoading('Sending to AI for deep analysis...');
+        const data = await analyzeResume(text);
+        renderResult(data);
+        showScreen('result');
+      } catch (err) {
+        document.getElementById('error-msg').textContent = err.message || 'Something went wrong.';
+        showScreen('error');
+      }
+    }
+
+    function setLoading(msg) {
+      document.getElementById('loading-msg').textContent = msg;
+    }
+
+    // ── PDF extraction ───────────────────────────────────────────────
+    async function extractTextFromPDF(file) {
+      const buffer = await file.arrayBuffer();
+      const pdf    = await pdfjsLib.getDocument({ data: buffer }).promise;
+      let text = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page    = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        text += content.items.map(item => item.str).join(' ') + '\n';
+      }
+      return text;
+    }
+
+    // ── API call to our secure backend ──────────────────────────────
+    async function analyzeResume(resumeText) {
+      const res  = await fetch('/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resumeText })
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Server error. Please try again.');
+      }
+
+      return await res.json();
+    }
+
+
+    // ── Render results ───────────────────────────────────────────────
+    function scoreColor(s) {
+      return s >= 80 ? '#4ade80' : s >= 60 ? '#facc15' : '#f87171';
+    }
+
+    function renderResult(r) {
+      // Score ring
+      const circumference = 2 * Math.PI * 54; // 339.29
+      const offset = circumference - (r.atsScore / 100) * circumference;
+      const color  = scoreColor(r.atsScore);
+      const ring   = document.getElementById('score-ring');
+      ring.setAttribute('stroke', color);
+      ring.style.filter = `drop-shadow(0 0 8px ${color})`;
+      setTimeout(() => ring.setAttribute('stroke-dashoffset', offset), 100);
+
+      document.getElementById('score-num').textContent  = r.atsScore;
+      document.getElementById('score-num').style.color  = color;
+      document.getElementById('score-grade').textContent = r.grade;
+      document.getElementById('score-grade').style.color = color;
+
+      // Summary
+      document.getElementById('summary-text').textContent = r.summary;
+
+      // Badges
+      const badges = document.getElementById('badges');
+      badges.innerHTML = '';
+      if (r.industryFit)
+        badges.innerHTML += `<span class="badge badge-green">🏢 ${r.industryFit}</span>`;
+      if (r.experienceLevel)
+        badges.innerHTML += `<span class="badge badge-purple">🎯 ${r.experienceLevel}</span>`;
+
+      // Red flags
+      const rfBox  = document.getElementById('red-flags-box');
+      const rfList = document.getElementById('red-flags-list');
+      const flags  = (r.redFlags || []).filter(f => f && f.trim());
+      if (flags.length) {
+        rfBox.style.display = 'block';
+        rfList.innerHTML = flags.map(f => `<div class="rf-item">• ${f}</div>`).join('');
+      } else {
+        rfBox.style.display = 'none';
+      }
+
+      // Section bars
+      const barsEl = document.getElementById('section-bars');
+      barsEl.innerHTML = '';
+      for (const [key, val] of Object.entries(r.sectionScores)) {
+        const c = scoreColor(val);
+        barsEl.innerHTML += `
+          <div class="bar-row">
+            <div class="bar-top">
+              <span class="bar-key">${key}</span>
+              <span class="bar-val" style="color:${c}">${val}%</span>
+            </div>
+            <div class="bar-bg">
+              <div class="bar-fill" style="width:${val}%;background:${c};box-shadow:0 0 6px ${c}"></div>
+            </div>
+          </div>`;
+      }
+
+      // Strengths
+      document.getElementById('strengths-list').innerHTML =
+        r.strengths.map(s => `<li>${s}</li>`).join('');
+
+      // Weaknesses
+      document.getElementById('weaknesses-list').innerHTML =
+        r.weaknesses.map(w => `<li>${w}</li>`).join('');
+
+      // Keywords
+      document.getElementById('keywords-wrap').innerHTML =
+        r.missingKeywords.map(k => `<span class="tag">${k}</span>`).join('');
+
+      // Suggestions
+      document.getElementById('suggestions-list').innerHTML =
+        r.suggestions.map(s => `<li>${s}</li>`).join('');
+
+      // Quick wins
+      const qwGrid = document.getElementById('quick-wins-grid');
+      qwGrid.innerHTML = (r.quickWins || []).map((w, i) =>
+        `<div class="qw-item"><span class="qw-num">0${i+1} </span>${w}</div>`
+      ).join('');
+    }
+  </script>
+</body>
+</html>
