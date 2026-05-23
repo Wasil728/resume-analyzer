@@ -16,7 +16,7 @@ console.log('GROQ KEY LOADED:', process.env.GROQ_API_KEY ? 'YES ✅' : 'NO ❌')
 app.post('/analyze', async (req, res) => {
   console.log('📩 Request received from browser!');
 
-  const { resumeText } = req.body;
+  const { resumeText, jobDescription } = req.body;
 
   if (!resumeText || !resumeText.trim()) {
     console.log('❌ No resume text received');
@@ -25,31 +25,29 @@ app.post('/analyze', async (req, res) => {
 
   console.log('📄 Resume text length:', resumeText.length);
 
-  const prompt = `You are a professional resume reviewer. Analyze the resume below and respond ONLY with a valid JSON object. No markdown, no backticks, no extra text whatsoever.
+  const prompt = `You are a professional ATS resume expert.
 
 RESUME:
 ${resumeText.slice(0, 2000)}
 
-Return exactly this JSON structure:
+JOB DESCRIPTION:
+${jobDescription ? jobDescription.slice(0, 1500) : "Not provided"}
+
+Respond ONLY with valid JSON, no markdown, no extra text:
 {
   "atsScore": <number 0-100>,
+  "matchScore": <number 0-100, how well resume matches the JD>,
   "grade": "<A+|A|A-|B+|B|B-|C+|C|D>",
-  "summary": "<2-3 sentence overall assessment>",
-  "industryFit": "<detected industry or role>",
-  "experienceLevel": "<Entry-Level|Mid-Level|Senior|Executive>",
- "strengths": ["<strength1>","<strength2>"],
-"weaknesses": ["<weakness1>","<weakness2>"],
-"missingKeywords": ["<kw1>","<kw2>","<kw3>","<kw4>"],
-"suggestions": ["<suggestion1>","<suggestion2>"],
-"quickWins": ["<quickwin1>","<quickwin2>"],
-  "redFlags": ["<redflag or empty string>"],
+  "summary": "<2-3 sentence assessment>",
+  "matchedKeywords": ["<keywords found in both resume and JD>"],
+  "missingKeywords": ["<keywords in JD but missing from resume>"],
+  "suggestions": ["<specific suggestion to better match this JD>"],
+  "quickWins": ["<quick fix to improve match score>"],
   "sectionScores": {
     "formatting": <0-100>,
     "experience": <0-100>,
     "skills": <0-100>,
-    "impact": <0-100>,
-    "keywords": <0-100>,
-    "clarity": <0-100>
+    "keywords": <0-100>
   }
 }`;
 
@@ -102,10 +100,16 @@ Return exactly this JSON structure:
     }
 
     const cleaned = raw.replace(/```json/g, '').replace(/```/g, '').trim();
-    const result  = JSON.parse(cleaned);
-
-    console.log('✅ Successfully parsed JSON!');
-    res.json(result);
+    
+    try {
+      const result = JSON.parse(cleaned);
+      console.log('✅ Successfully parsed JSON!');
+      res.json(result);
+    } catch (parseErr) {
+      console.error('❌ JSON Parse Error:', parseErr.message);
+      console.error('Attempted to parse:', cleaned.slice(0, 200));
+      res.status(500).json({ error: 'AI returned invalid JSON: ' + parseErr.message });
+    }
 
   } catch (err) {
     console.error('❌ Error:', err.message);

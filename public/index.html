@@ -282,6 +282,11 @@
     </div>
     <input type="file" id="file-input" accept=".pdf" style="display:none"/>
 
+    <textarea id="jd-input" placeholder="PASTE JOB DESCRIPTION HERE (OPTIONAL — BUT UNLOCKS MATCH SCORE)"
+      style="width:100%;margin-top:20px;padding:16px;background:#0a1628;border:2px dashed #1e293b;
+      border-radius:16px;color:#94a3b8;font-family:'DM Mono',monospace;font-size:12px;
+      letter-spacing:1px;line-height:1.7;resize:vertical;min-height:120px;outline:none"></textarea>
+
     <button id="analyze-btn">ANALYZE RESUME →</button>
 
     <div class="features">
@@ -498,15 +503,25 @@
       const res  = await fetch('/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resumeText })
+        body: JSON.stringify({ resumeText, jobDescription: document.getElementById('jd-input').value })
       });
 
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Server error. Please try again.');
+        const text = await res.text();
+        try {
+          const err = JSON.parse(text);
+          throw new Error(err.error || 'Server error. Please try again.');
+        } catch (parseErr) {
+          throw new Error(text || 'Server error. Please try again.');
+        }
       }
 
-      return await res.json();
+      try {
+        return await res.json();
+      } catch (e) {
+        console.error('Failed to parse response:', e);
+        throw new Error('Invalid response from server.');
+      }
     }
 
 
@@ -534,10 +549,15 @@
       document.getElementById('summary-text').textContent = r.summary;
 
       // Badges
-      const badges = document.getElementById('badges');
+      const badges = document.getElementById('badges');if (r.industryFit)
+  badges.innerHTML += `<span class="badge badge-green">🏢 ${r.industryFit}</span>`;
+if (r.matchScore)
+  badges.innerHTML += `<span class="badge badge-purple">🎯 JD MATCH: ${r.matchScore}%</span>`;
       badges.innerHTML = '';
       if (r.industryFit)
         badges.innerHTML += `<span class="badge badge-green">🏢 ${r.industryFit}</span>`;
+      if (r.matchScore)
+        badges.innerHTML += `<span class="badge badge-purple">🎯 JD MATCH: ${r.matchScore}%</span>`;
       if (r.experienceLevel)
         badges.innerHTML += `<span class="badge badge-purple">🎯 ${r.experienceLevel}</span>`;
 
