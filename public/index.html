@@ -531,8 +531,7 @@
     }
 
     function renderResult(r) {
-      // Score ring
-      const circumference = 2 * Math.PI * 54; // 339.29
+      const circumference = 2 * Math.PI * 54;
       const offset = circumference - (r.atsScore / 100) * circumference;
       const color  = scoreColor(r.atsScore);
       const ring   = document.getElementById('score-ring');
@@ -545,23 +544,17 @@
       document.getElementById('score-grade').textContent = r.grade;
       document.getElementById('score-grade').style.color = color;
 
-      // Summary
       document.getElementById('summary-text').textContent = r.summary;
 
-      // Badges
-      const badges = document.getElementById('badges');if (r.industryFit)
-  badges.innerHTML += `<span class="badge badge-green">🏢 ${r.industryFit}</span>`;
-if (r.matchScore)
-  badges.innerHTML += `<span class="badge badge-purple">🎯 JD MATCH: ${r.matchScore}%</span>`;
+      const badges = document.getElementById('badges');
       badges.innerHTML = '';
       if (r.industryFit)
         badges.innerHTML += `<span class="badge badge-green">🏢 ${r.industryFit}</span>`;
-      if (r.matchScore)
-        badges.innerHTML += `<span class="badge badge-purple">🎯 JD MATCH: ${r.matchScore}%</span>`;
       if (r.experienceLevel)
         badges.innerHTML += `<span class="badge badge-purple">🎯 ${r.experienceLevel}</span>`;
+      if (r.matchScore)
+        badges.innerHTML += `<span class="badge badge-purple">🎯 JD MATCH: ${r.matchScore}%</span>`;
 
-      // Red flags
       const rfBox  = document.getElementById('red-flags-box');
       const rfList = document.getElementById('red-flags-list');
       const flags  = (r.redFlags || []).filter(f => f && f.trim());
@@ -572,10 +565,9 @@ if (r.matchScore)
         rfBox.style.display = 'none';
       }
 
-      // Section bars
       const barsEl = document.getElementById('section-bars');
       barsEl.innerHTML = '';
-      for (const [key, val] of Object.entries(r.sectionScores)) {
+      for (const [key, val] of Object.entries(r.sectionScores || {})) {
         const c = scoreColor(val);
         barsEl.innerHTML += `
           <div class="bar-row">
@@ -589,23 +581,18 @@ if (r.matchScore)
           </div>`;
       }
 
-      // Strengths
       document.getElementById('strengths-list').innerHTML =
-        r.strengths.map(s => `<li>${s}</li>`).join('');
+        (r.strengths || []).map(s => `<li>${s}</li>`).join('');
 
-      // Weaknesses
       document.getElementById('weaknesses-list').innerHTML =
-        r.weaknesses.map(w => `<li>${w}</li>`).join('');
+        (r.weaknesses || []).map(w => `<li>${w}</li>`).join('');
 
-      // Keywords
       document.getElementById('keywords-wrap').innerHTML =
-        r.missingKeywords.map(k => `<span class="tag">${k}</span>`).join('');
+        (r.missingKeywords || []).map(k => `<span class="tag">${k}</span>`).join('');
 
-      // Suggestions
       document.getElementById('suggestions-list').innerHTML =
-        r.suggestions.map(s => `<li>${s}</li>`).join('');
+        (r.suggestions || []).map(s => `<li>${s}</li>`).join('');
 
-      // Quick wins
       const qwGrid = document.getElementById('quick-wins-grid');
       qwGrid.innerHTML = (r.quickWins || []).map((w, i) =>
         `<div class="qw-item"><span class="qw-num">0${i+1} </span>${w}</div>`
