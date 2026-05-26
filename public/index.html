@@ -3,601 +3,1351 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>AI Resume Analyzer</title>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <meta name="description" content="AI-powered resume analyzer that scores your resume for ATS compatibility, identifies keyword gaps, and builds a fully optimized resume tailored to your profession."/>
+  <title>ResumeAI — ATS Resume Analyzer &amp; Builder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-
   <style>
+    /* ── RESET & TOKENS ─────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
-      --green:  #4ade80;
-      --purple: #818cf8;
-      --yellow: #facc15;
-      --red:    #f87171;
-      --teal:   #34d399;
-      --bg:     #060d18;
-      --surface:#0f172a;
-      --border: #1e293b;
-      --muted:  #64748b;
-      --text:   #94a3b8;
+      --bg:         #09090b;
+      --surface:    #111117;
+      --surface-2:  #18181f;
+      --surface-3:  #1f1f28;
+      --border:     #27272f;
+      --border-2:   #38383f;
+      --accent:     #6366f1;
+      --accent-2:   #4f46e5;
+      --accent-dim: rgba(99,102,241,0.1);
+      --accent-glow:rgba(99,102,241,0.22);
+      --success:    #22c55e;
+      --suc-dim:    rgba(34,197,94,0.1);
+      --warning:    #f59e0b;
+      --error:      #ef4444;
+      --err-dim:    rgba(239,68,68,0.1);
+      --text-1:     #f4f4f6;
+      --text-2:     #9191a4;
+      --text-3:     #55555f;
+      --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 20px;
     }
-
+    html { scroll-behavior: smooth; }
     body {
-      font-family: 'DM Mono', monospace;
-      background: radial-gradient(ellipse at 20% 10%, #0c1a2e 0%, #060d18 60%, #020408 100%);
-      color: #e2e8f0;
-      min-height: 100vh;
-      padding: 40px 20px;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg); color: var(--text-1); min-height: 100vh;
+      line-height: 1.6; -webkit-font-smoothing: antialiased;
+    }
+    .hidden { display: none !important; }
+
+    /* ── NAV ────────────────────────────────────────────────────── */
+    .nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+      height: 58px; padding: 0 32px;
+      display: flex; align-items: center; justify-content: space-between;
+      background: rgba(9,9,11,0.92); backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-brand {
+      display: flex; align-items: center; gap: 9px;
+      font-size: 15px; font-weight: 700; color: var(--text-1); text-decoration: none;
+    }
+    .nav-logo {
+      width: 30px; height: 30px; border-radius: 8px; background: var(--accent);
+      display: flex; align-items: center; justify-content: center; font-size: 15px;
+    }
+    .nav-pill {
+      font-size: 11px; font-weight: 600; padding: 3px 9px;
+      background: var(--accent-dim); color: var(--accent);
+      border: 1px solid rgba(99,102,241,0.25); border-radius: 99px;
     }
 
-    /* ── SCREENS ── */
-    .screen { display: none; }
+    /* ── SCREENS ─────────────────────────────────────────────────── */
+    .screen { display: none; padding-top: 58px; min-height: 100vh; }
     .screen.active { display: block; }
+    #loading-screen.active, #error-screen.active { display: flex; }
 
-    /* ── UPLOAD SCREEN ── */
-    #upload-screen { max-width: 520px; margin: 0 auto; }
+    /* ── LAYOUT ──────────────────────────────────────────────────── */
+    .wrap    { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+    .wrap-sm { max-width:  580px; margin: 0 auto; padding: 0 28px; }
 
-    .header { text-align: center; margin-bottom: 48px; }
-    .header .label { font-size: 11px; color: var(--green); letter-spacing: 4px; margin-bottom: 8px; }
-    .header h1 {
-      font-family: 'Bebas Neue', cursive;
-      font-size: clamp(42px, 8vw, 72px);
-      line-height: 1; letter-spacing: 3px; color: #f1f5f9;
+    /* ── UPLOAD SCREEN ───────────────────────────────────────────── */
+    .hero { text-align: center; padding: 72px 0 48px; }
+    .hero-eyebrow {
+      display: inline-flex; align-items: center; gap: 7px;
+      font-size: 12px; font-weight: 600; letter-spacing: 0.04em;
+      color: var(--accent); background: var(--accent-dim);
+      border: 1px solid rgba(99,102,241,0.22);
+      border-radius: 99px; padding: 5px 14px; margin-bottom: 26px;
     }
-    .header h1 span { color: var(--green); }
-    .header p { color: var(--muted); margin-top: 12px; font-size: 13px; letter-spacing: 1px; }
-
-    #drop-zone {
-      border: 2px dashed var(--border);
-      border-radius: 20px;
-      padding: 52px 32px;
-      text-align: center;
-      cursor: pointer;
-      transition: all .3s;
-      background: rgba(15,23,42,.6);
+    .hero-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+    .hero-title {
+      font-size: clamp(34px,5.5vw,60px); font-weight: 800;
+      line-height: 1.08; letter-spacing: -0.04em; color: var(--text-1); margin-bottom: 18px;
     }
-    #drop-zone:hover, #drop-zone.drag-over {
-      border-color: var(--green);
-      background: rgba(74,222,128,.04);
-      box-shadow: 0 0 30px rgba(74,222,128,.1);
+    .hero-title em { font-style: normal; color: var(--accent); }
+    .hero-sub {
+      font-size: 16px; color: var(--text-2); max-width: 460px;
+      margin: 0 auto 48px; line-height: 1.75;
     }
-    #drop-zone.has-file {
-      border-color: var(--green);
-      background: rgba(74,222,128,.03);
-      box-shadow: 0 0 30px rgba(74,222,128,.1);
-    }
-    #drop-zone .icon { font-size: 44px; margin-bottom: 16px; }
-    #drop-zone .title {
-      font-family: 'Bebas Neue', cursive;
-      font-size: 22px; color: #94a3b8; letter-spacing: 2px;
-    }
-    #drop-zone .sub { font-size: 12px; color: #475569; margin-top: 6px; }
-    #file-name { font-family: 'Bebas Neue', cursive; font-size: 20px; color: var(--green); letter-spacing: 2px; }
-    #file-size { font-size: 12px; color: var(--muted); margin-top: 4px; }
-
-    #analyze-btn {
-      display: none;
-      margin-top: 20px; width: 100%; padding: 16px;
-      background: linear-gradient(135deg, #4ade80, #22c55e);
-      border: none; border-radius: 12px; cursor: pointer;
-      font-family: 'Bebas Neue', cursive; font-size: 18px;
-      letter-spacing: 3px; color: #020408;
-      box-shadow: 0 0 24px rgba(74,222,128,.35);
-      transition: transform .15s, box-shadow .15s;
-    }
-    #analyze-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 0 36px rgba(74,222,128,.5);
-    }
-
-    .features {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 32px;
-    }
-    .feature-item {
-      background: #0a1628; border: 1px solid var(--border);
-      border-radius: 12px; padding: 12px 16px;
-      display: flex; align-items: center; gap: 10px;
-    }
-    .feature-item .fi { font-size: 20px; }
-    .feature-item .fl {
-      font-family: 'Bebas Neue', cursive; font-size: 14px;
-      color: var(--muted); letter-spacing: 2px;
-    }
-
-    /* ── LOADING SCREEN ── */
-    #loading-screen {
-      display: none; flex-direction: column;
-      align-items: center; justify-content: center;
-      min-height: 80vh; text-align: center;
-    }
-    #loading-screen.active { display: flex; }
-    .spin { font-size: 48px; margin-bottom: 24px; animation: spin 2s linear infinite; display: inline-block; }
-    .loading-title {
-      font-family: 'Bebas Neue', cursive; font-size: 28px;
-      color: var(--green); letter-spacing: 3px;
-    }
-    #loading-msg { color: var(--muted); margin-top: 8px; font-size: 13px; letter-spacing: 1px; }
-    .dots { display: flex; gap: 8px; justify-content: center; margin-top: 32px; }
-    .dot {
-      width: 8px; height: 8px; border-radius: 50%;
-      background: var(--green); animation: bounce 1.2s infinite;
-    }
-    .dot:nth-child(2) { animation-delay: .2s; }
-    .dot:nth-child(3) { animation-delay: .4s; }
-
-    /* ── ERROR SCREEN ── */
-    #error-screen {
-      display: none; flex-direction: column;
-      align-items: center; justify-content: center;
-      min-height: 80vh; text-align: center;
-    }
-    #error-screen.active { display: flex; }
-    .error-icon { font-size: 52px; margin-bottom: 16px; }
-    .error-title { font-family: 'Bebas Neue', cursive; font-size: 28px; color: var(--red); letter-spacing: 2px; }
-    #error-msg { color: var(--muted); font-size: 13px; margin-top: 8px; max-width: 400px; }
-    .retry-btn {
-      margin-top: 24px; padding: 12px 32px;
-      background: var(--green); border: none; border-radius: 10px;
-      cursor: pointer; font-family: 'Bebas Neue', cursive;
-      font-size: 16px; letter-spacing: 2px; color: #020408;
-    }
-
-    /* ── RESULT SCREEN ── */
-    #result-screen { max-width: 820px; margin: 0 auto; }
-
-    .result-header {
-      display: flex; justify-content: space-between;
-      align-items: center; margin-bottom: 24px;
-    }
-    .result-header .label { font-size: 11px; color: var(--green); letter-spacing: 4px; }
-    .result-header h2 {
-      font-family: 'Bebas Neue', cursive; font-size: 32px;
-      margin-top: 4px; letter-spacing: 2px;
-    }
-    .new-scan-btn {
-      padding: 8px 18px; background: transparent;
-      border: 1px solid #334155; border-radius: 8px;
-      cursor: pointer; color: var(--muted); font-family: 'DM Mono', monospace; font-size: 12px;
-      white-space: nowrap;
-    }
-    .new-scan-btn:hover { border-color: var(--green); color: var(--green); }
-
-    /* Badges */
-    .badges { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
-    .badge {
-      padding: 5px 14px; border-radius: 99px;
-      font-size: 11px; letter-spacing: 1px;
-    }
-    .badge-green { background: rgba(74,222,128,.1); border: 1px solid rgba(74,222,128,.3); color: var(--green); }
-    .badge-purple { background: rgba(129,140,248,.1); border: 1px solid rgba(129,140,248,.3); color: var(--purple); }
-
-    /* Red Flags */
-    #red-flags-box {
-      background: rgba(248,113,113,.08); border: 1px solid rgba(248,113,113,.3);
-      border-radius: 12px; padding: 14px 18px; margin-bottom: 16px;
-    }
-    .rf-title { font-family: 'Bebas Neue', cursive; font-size: 14px; color: var(--red); letter-spacing: 2px; margin-bottom: 8px; }
-    .rf-item { font-size: 13px; color: #fca5a5; line-height: 1.7; }
-
-    /* Card */
-    .card {
+    .upload-card {
       background: var(--surface); border: 1px solid var(--border);
-      border-radius: 16px; padding: 20px 22px;
+      border-radius: var(--r-xl); padding: 28px; margin-bottom: 14px;
     }
-    .card-header {
-      display: flex; align-items: center; gap: 8px;
-      margin-bottom: 14px; border-bottom: 1px solid var(--border); padding-bottom: 12px;
+    .drop-zone {
+      border: 1.5px dashed var(--border-2); border-radius: var(--r-lg);
+      padding: 44px 28px; text-align: center; cursor: pointer;
+      transition: all 0.2s; background: var(--surface-2);
     }
-    .card-title {
-      font-family: 'Bebas Neue', cursive; font-size: 16px; letter-spacing: 2px;
-    }
-
-    /* Grid layouts */
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
-    .top-grid { display: grid; grid-template-columns: auto 1fr; gap: 16px; margin-bottom: 16px; }
-    .score-card {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 16px; padding: 24px 28px;
+    .drop-zone:hover, .drop-zone.drag-over { border-color: var(--accent); background: var(--accent-dim); }
+    .drop-zone.has-file { border-color: var(--success); background: var(--suc-dim); border-style: solid; }
+    .drop-icon-box {
+      width: 48px; height: 48px; border-radius: var(--r-md);
+      background: var(--surface-3); border: 1px solid var(--border-2);
       display: flex; align-items: center; justify-content: center;
+      font-size: 20px; margin: 0 auto 14px; transition: all 0.2s;
     }
-    .score-col { display: flex; flex-direction: column; gap: 16px; }
+    .drop-zone:hover .drop-icon-box { background: var(--accent-dim); border-color: var(--accent); }
+    .drop-zone.has-file .drop-icon-box { background: var(--suc-dim); border-color: var(--success); }
+    .drop-title { font-size: 15px; font-weight: 600; color: var(--text-1); margin-bottom: 3px; }
+    .drop-sub   { font-size: 13px; color: var(--text-3); }
+    .jd-header { display: flex; align-items: center; gap: 8px; margin: 20px 0 8px; font-size: 13px; font-weight: 600; color: var(--text-2); }
+    .jd-tag { font-size: 10px; font-weight: 600; letter-spacing: 0.05em; padding: 2px 7px; background: var(--surface-3); border: 1px solid var(--border-2); border-radius: 4px; color: var(--text-3); text-transform: uppercase; }
+    #jd-input {
+      width: 100%; padding: 13px 15px; min-height: 110px;
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: var(--r-md); color: var(--text-1);
+      font-family: 'Inter', sans-serif; font-size: 13px; line-height: 1.7;
+      resize: vertical; outline: none; transition: border-color 0.2s;
+    }
+    #jd-input:focus { border-color: var(--accent); }
+    #jd-input::placeholder { color: var(--text-3); }
+    #analyze-btn {
+      display: none; width: 100%; margin-top: 14px; padding: 14px;
+      background: var(--accent); border: none; border-radius: var(--r-md);
+      font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 600;
+      color: #fff; cursor: pointer; transition: all 0.2s;
+    }
+    #analyze-btn:hover { background: var(--accent-2); transform: translateY(-1px); box-shadow: 0 10px 28px var(--accent-glow); }
+    .features { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-top: 40px; padding-bottom: 72px; }
+    .feat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); padding: 16px 15px; }
+    .feat-icon  { font-size: 18px; margin-bottom: 9px; }
+    .feat-name  { font-size: 13px; font-weight: 600; color: var(--text-1); margin-bottom: 3px; }
+    .feat-desc  { font-size: 12px; color: var(--text-3); line-height: 1.6; }
 
-    /* Score Ring */
-    .ring-wrap { position: relative; width: 140px; height: 140px; }
+    /* ── LOADING ─────────────────────────────────────────────────── */
+    #loading-screen { flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+    .loader-ring {
+      width: 52px; height: 52px; border-radius: 50%;
+      border: 3px solid var(--border-2); border-top-color: var(--accent);
+      animation: spin 0.75s linear infinite; margin-bottom: 26px;
+    }
+    .loader-title { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 6px; }
+    #loader-msg { font-size: 13px; color: var(--text-2); }
+    .loader-steps { margin-top: 28px; display: flex; flex-direction: column; gap: 10px; text-align: left; }
+    .lst { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-3); }
+    .lst.active { color: var(--text-1); } .lst.done { color: var(--success); }
+    .lst-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border-2); flex-shrink: 0; transition: all 0.3s; }
+    .lst.active .lst-dot { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+    .lst.done   .lst-dot { background: var(--success); }
+
+    /* ── ERROR ───────────────────────────────────────────────────── */
+    #error-screen { flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+    .err-icon { width: 62px; height: 62px; border-radius: 50%; background: var(--err-dim); border: 1px solid rgba(239,68,68,0.2); display: flex; align-items: center; justify-content: center; font-size: 26px; margin-bottom: 18px; }
+    .err-title { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+    #error-msg { font-size: 14px; color: var(--text-2); max-width: 380px; line-height: 1.75; }
+    .retry-btn { margin-top: 26px; padding: 11px 28px; background: var(--surface-2); border: 1px solid var(--border-2); border-radius: var(--r-md); cursor: pointer; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500; color: var(--text-1); transition: all 0.2s; }
+    .retry-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── RESULT SCREEN ───────────────────────────────────────────── */
+    #result-screen { padding-bottom: 80px; }
+    .page-hd { display: flex; align-items: center; justify-content: space-between; padding: 30px 0 22px; border-bottom: 1px solid var(--border); margin-bottom: 28px; gap: 16px; }
+    .page-hd h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.025em; }
+    .page-hd p  { font-size: 13px; color: var(--text-2); margin-top: 2px; }
+    .ghost-btn { display: flex; align-items: center; gap: 5px; padding: 8px 16px; background: transparent; border: 1px solid var(--border); border-radius: var(--r-sm); cursor: pointer; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; color: var(--text-2); transition: all 0.2s; white-space: nowrap; }
+    .ghost-btn:hover { border-color: var(--border-2); color: var(--text-1); }
+
+    /* Score */
+    .score-area { display: grid; grid-template-columns: 220px 1fr; gap: 16px; margin-bottom: 16px; }
+    .score-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 28px 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+    .ring-wrap  { position: relative; width: 126px; height: 126px; }
     .ring-wrap svg { transform: rotate(-90deg); }
-    .ring-overlay {
-      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-    }
-    .ring-score { font-family: 'Bebas Neue', cursive; font-size: 36px; line-height: 1; }
-    .ring-label { font-size: 11px; color: var(--muted); letter-spacing: 2px; }
-    .ring-grade {
-      font-family: 'Bebas Neue', cursive; font-size: 26px;
-      letter-spacing: 2px; text-align: center; margin-top: 6px;
-    }
-    .score-block { display: flex; flex-direction: column; align-items: center; }
+    .ring-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .ring-num { font-size: 32px; font-weight: 800; line-height: 1; letter-spacing: -0.04em; }
+    .ring-lbl { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-3); margin-top: 3px; }
+    .grade-pill { font-size: 13px; font-weight: 700; padding: 4px 14px; border-radius: 99px; background: var(--surface-2); border: 1px solid var(--border-2); }
+    .score-col  { display: flex; flex-direction: column; gap: 12px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 18px 20px; }
+    .card.fill { flex: 1; }
+    .card-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em; color: var(--text-3); margin-bottom: 10px; }
+    .summary-body { font-size: 13px; color: var(--text-2); line-height: 1.8; }
+    .bar-row { margin-bottom: 10px; } .bar-row:last-child { margin-bottom: 0; }
+    .bar-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+    .bar-key { font-size: 12px; font-weight: 500; color: var(--text-2); text-transform: capitalize; }
+    .bar-pct { font-size: 12px; font-weight: 600; }
+    .bar-bg  { height: 3px; background: var(--surface-3); border-radius: 99px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 99px; transition: width 1.1s cubic-bezier(0.4,0,0.2,1); width: 0; }
 
-    /* Section bars */
-    .bar-row { margin-bottom: 10px; }
-    .bar-top { display: flex; justify-content: space-between; margin-bottom: 4px; }
-    .bar-key { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
-    .bar-val { font-size: 11px; }
-    .bar-bg { height: 4px; background: var(--border); border-radius: 99px; }
-    .bar-fill { height: 100%; border-radius: 99px; transition: width 1s ease; }
+    /* Metrics */
+    .metrics-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 16px; }
+    .metric { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 16px 18px; }
+    .metric-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); margin-bottom: 7px; }
+    .metric-val { font-size: 28px; font-weight: 800; letter-spacing: -0.04em; line-height: 1; }
+    .metric-sub { font-size: 12px; color: var(--text-3); margin-top: 3px; }
+
+    /* Grid */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+    .col-full { grid-column: 1/-1; }
+    .card-hd { display: flex; align-items: center; gap: 7px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+    .card-hd-icon { font-size: 15px; }
+    .card-hd-title { font-size: 13px; font-weight: 600; }
 
     /* Lists */
-    .result-list { padding-left: 16px; }
-    .result-list li { color: var(--text); font-size: 13px; line-height: 1.85; margin-bottom: 4px; }
-    .result-ol { padding-left: 16px; }
-    .result-ol li { color: var(--text); font-size: 13px; line-height: 1.85; margin-bottom: 4px; }
+    .dot-list { list-style: none; padding: 0; }
+    .dot-list li { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: var(--text-2); line-height: 1.75; padding: 5px 0; border-bottom: 1px solid var(--border); }
+    .dot-list li:last-child { border-bottom: none; }
+    .dot-list li::before { content: '·'; color: var(--accent); font-size: 20px; line-height: 1.2; flex-shrink: 0; }
+    .num-list { list-style: none; padding: 0; counter-reset: nl; }
+    .num-list li { display: flex; align-items: flex-start; gap: 9px; font-size: 13px; color: var(--text-2); line-height: 1.75; padding: 7px 0; border-bottom: 1px solid var(--border); counter-increment: nl; }
+    .num-list li:last-child { border-bottom: none; }
+    .num-list li::before { content: counter(nl,decimal-leading-zero); font-size: 10px; font-weight: 700; color: var(--accent); background: var(--accent-dim); border-radius: 4px; padding: 1px 5px; flex-shrink: 0; line-height: 20px; margin-top: 2px; }
 
     /* Tags */
-    .tags-wrap { display: flex; flex-wrap: wrap; gap: 4px; }
-    .tag {
-      display: inline-block; padding: 3px 10px; border-radius: 99px;
-      background: #1a1800; font-size: 11px; color: #e2e8f0;
-      border: 1px solid #475569;
+    .tag-wrap { display: flex; flex-wrap: wrap; gap: 6px; }
+    .tag-miss { padding: 4px 10px; border-radius: 99px; font-size: 12px; font-weight: 500; background: var(--err-dim); border: 1px solid rgba(239,68,68,0.2); color: #f87171; }
+    .tag-hit  { padding: 4px 10px; border-radius: 99px; font-size: 12px; font-weight: 500; background: var(--suc-dim); border: 1px solid rgba(34,197,94,0.2); color: var(--success); }
+    .tag-note { font-size: 12px; color: var(--text-3); margin-top: 10px; }
+
+    /* Quick Wins */
+    .qw-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(210px,1fr)); gap: 9px; }
+    .qw-item { display: flex; align-items: flex-start; gap: 9px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 11px 13px; }
+    .qw-num  { font-size: 10px; font-weight: 700; color: var(--accent); background: var(--accent-dim); border-radius: 4px; padding: 2px 5px; flex-shrink: 0; }
+    .qw-txt  { font-size: 13px; color: var(--text-2); line-height: 1.65; }
+
+    /* Badges */
+    .badges { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 18px; }
+    .badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 11px; border-radius: 99px; font-size: 12px; font-weight: 500; }
+    .badge-a { background: var(--accent-dim); border: 1px solid rgba(99,102,241,0.22); color: var(--accent); }
+    .badge-s { background: var(--suc-dim); border: 1px solid rgba(34,197,94,0.22); color: var(--success); }
+
+    /* Red flags */
+    .red-flags { background: var(--err-dim); border: 1px solid rgba(239,68,68,0.2); border-radius: var(--r-md); padding: 14px 18px; margin-bottom: 14px; display: none; }
+    .rf-title  { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--error); margin-bottom: 8px; }
+    .rf-item   { font-size: 13px; color: #fca5a5; line-height: 1.7; padding: 3px 0; }
+
+    /* ── ATS CTA (two buttons) ────────────────────────────────────── */
+    .ats-cta {
+      margin-top: 22px;
+      background: linear-gradient(135deg, var(--surface) 0%, rgba(99,102,241,0.04) 100%);
+      border: 1px solid rgba(99,102,241,0.22); border-radius: var(--r-xl);
+      padding: 26px; display: flex; align-items: center; justify-content: space-between; gap: 24px;
     }
-    .tags-note { font-size: 11px; color: #475569; margin-top: 10px; }
-
-    /* Quick wins */
-    .qw-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
-    .qw-item {
-      background: rgba(52,211,153,.06); border: 1px solid rgba(52,211,153,.2);
-      border-radius: 10px; padding: 10px 14px;
-      font-size: 13px; color: var(--text); line-height: 1.6;
+    .ats-cta-left h3 { font-size: 17px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 5px; }
+    .ats-cta-left p  { font-size: 13px; color: var(--text-2); line-height: 1.65; max-width: 540px; }
+    .cta-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+    .cta-pill  { font-size: 11px; font-weight: 500; padding: 3px 9px; background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(99,102,241,0.2); border-radius: 99px; }
+    .cta-btns  { display: flex; flex-direction: column; gap: 9px; flex-shrink: 0; }
+    .cta-outline {
+      padding: 11px 20px; background: transparent;
+      border: 1.5px solid rgba(99,102,241,0.4); border-radius: var(--r-md);
+      font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
+      color: var(--accent); cursor: pointer; transition: all 0.2s; white-space: nowrap;
     }
-    .qw-num { font-family: 'Bebas Neue', cursive; font-size: 15px; color: var(--teal); letter-spacing: 1px; }
+    .cta-outline:hover { background: var(--accent-dim); border-color: var(--accent); }
+    .cta-outline:disabled { opacity: 0.45; cursor: not-allowed; }
+    .cta-filled {
+      padding: 12px 20px; background: var(--accent); border: none; border-radius: var(--r-md);
+      font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600;
+      color: #fff; cursor: pointer; transition: all 0.2s; white-space: nowrap;
+    }
+    .cta-filled:hover { background: var(--accent-2); transform: translateY(-1px); box-shadow: 0 10px 28px var(--accent-glow); }
+    .cta-filled:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
 
-    /* Footer */
-    .footer { text-align: center; margin-top: 28px; color: #334155; font-size: 11px; letter-spacing: 2px; }
+    /* ── ATS RESUME SCREEN ───────────────────────────────────────── */
+    #ats-resume-screen { padding-bottom: 80px; }
+    .ats-hd { display: flex; align-items: flex-start; justify-content: space-between; padding: 30px 0 22px; border-bottom: 1px solid var(--border); margin-bottom: 26px; gap: 20px; }
+    .ats-hd h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.025em; margin-bottom: 6px; }
+    .cfg-used { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+    .cfg-chip { font-size: 11px; font-weight: 500; padding: 2px 9px; border-radius: 99px; background: var(--surface-2); border: 1px solid var(--border-2); color: var(--text-2); }
+    .cfg-chip.mode-chip { background: var(--accent-dim); border-color: rgba(99,102,241,0.25); color: var(--accent); }
+    .score-diff { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 500; margin-top: 6px; }
+    .sd-before { padding: 3px 11px; border-radius: 99px; background: var(--err-dim); border: 1px solid rgba(239,68,68,0.2); color: var(--error); }
+    .sd-arrow  { color: var(--text-3); }
+    .sd-after  { padding: 3px 11px; border-radius: 99px; background: var(--suc-dim); border: 1px solid rgba(34,197,94,0.2); color: var(--success); }
+    .sd-delta  { padding: 3px 9px; border-radius: 99px; font-weight: 700; background: var(--suc-dim); color: var(--success); font-size: 12px; }
+    .ats-hd-btns { display: flex; gap: 9px; flex-shrink: 0; }
+    .outline-btn { display: flex; align-items: center; gap: 5px; padding: 9px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-sm); cursor: pointer; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; color: var(--text-2); transition: all 0.2s; }
+    .outline-btn:hover { border-color: var(--border-2); color: var(--text-1); }
+    .ats-layout { display: grid; grid-template-columns: 1fr 304px; gap: 22px; align-items: start; }
 
-    /* Animations */
-    @keyframes spin { to { transform: rotate(360deg); } }
-    @keyframes bounce { 0%,80%,100%{ transform: scale(0); } 40%{ transform: scale(1); } }
+    /* Resume document */
+    .resume-doc { background: #fff; color: #1a1a2e; border-radius: var(--r-lg); padding: 48px 52px; box-shadow: 0 24px 64px rgba(0,0,0,0.45); font-family: 'Inter', sans-serif; line-height: 1.55; font-size: 13px; }
+    .rd-name    { font-size: 26px; font-weight: 800; letter-spacing: -0.03em; color: #0f0f1a; margin-bottom: 5px; }
+    .rd-contact { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: #5a5a6e; margin-bottom: 22px; }
+    .rd-sec       { margin-bottom: 20px; }
+    .rd-sec-title { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.12em; color: #6366f1; border-bottom: 1.5px solid #e8e8f0; padding-bottom: 5px; margin-bottom: 12px; }
+    .rd-summary   { font-size: 13px; color: #374151; line-height: 1.75; }
+    .rd-exp       { margin-bottom: 14px; }
+    .rd-exp-hd    { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 5px; }
+    .rd-exp-title { font-size: 14px; font-weight: 700; color: #0f0f1a; }
+    .rd-exp-co    { font-size: 12px; color: #374151; font-weight: 500; }
+    .rd-exp-dates { font-size: 11px; color: #9ca3af; text-align: right; white-space: nowrap; margin-left: 8px; }
+    .rd-bullets   { list-style: none; padding: 0; }
+    .rd-bullets li { font-size: 12.5px; color: #374151; line-height: 1.65; padding: 2px 0 2px 14px; position: relative; }
+    .rd-bullets li::before { content: '•'; position: absolute; left: 0; color: #6366f1; }
+    .rd-edu     { margin-bottom: 10px; }
+    .rd-edu-deg { font-size: 13px; font-weight: 700; color: #0f0f1a; }
+    .rd-edu-sch { font-size: 12px; color: #374151; font-weight: 500; }
+    .rd-edu-meta{ font-size: 11px; color: #9ca3af; }
+    .rd-skills-grid { display: flex; flex-direction: column; gap: 7px; }
+    .rd-skills-row  { display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
+    .rd-skills-cat  { font-size: 11px; font-weight: 700; color: #374151; min-width: 74px; flex-shrink: 0; padding-top: 3px; }
+    .rd-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+    .rd-chip  { font-size: 11px; padding: 2px 8px; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 4px; color: #374151; }
+    .rd-chip.inj { background: #ede9fe; border-color: #c4b5fd; color: #5b21b6; }
+    .rd-cert  { font-size: 12.5px; color: #374151; line-height: 1.7; padding: 2px 0; }
+    .kw-hl { background: rgba(99,102,241,0.12); border-bottom: 1.5px solid #6366f1; }
+    .highlights-off .kw-hl { background: transparent; border-bottom: none; }
 
-    /* Responsive */
+    /* Sidebar */
+    .ats-sidebar { display: flex; flex-direction: column; gap: 12px; }
+    .sb-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 16px 18px; }
+    .sb-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em; color: var(--text-3); margin-bottom: 12px; }
+    .dl-btns  { display: flex; flex-direction: column; gap: 7px; }
+    .dl-btn   { display: flex; align-items: center; gap: 7px; padding: 10px 13px; border-radius: var(--r-sm); font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; text-align: left; border: 1px solid var(--border); background: var(--surface-2); color: var(--text-1); }
+    .dl-btn:hover { border-color: var(--border-2); }
+    .dl-btn.accent { background: var(--accent-dim); border-color: rgba(99,102,241,0.25); color: var(--accent); }
+    .dl-btn.accent:hover { background: rgba(99,102,241,0.16); }
+    .improvements { display: flex; flex-direction: column; gap: 8px; }
+    .imp-item { display: flex; align-items: flex-start; gap: 7px; font-size: 13px; color: var(--text-2); line-height: 1.65; }
+    .imp-check { color: var(--success); flex-shrink: 0; }
+    .toggle-row { display: flex; align-items: center; justify-content: space-between; }
+    .toggle-lbl { font-size: 13px; color: var(--text-2); }
+    .tog { position: relative; width: 38px; height: 21px; cursor: pointer; display: inline-block; }
+    .tog input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .tog-slider { position: absolute; inset: 0; background: var(--surface-3); border: 1px solid var(--border-2); border-radius: 99px; transition: all 0.22s; }
+    .tog-slider::before { content: ''; position: absolute; top: 3px; left: 3px; width: 13px; height: 13px; background: var(--text-3); border-radius: 50%; transition: all 0.22s; }
+    .tog input:checked + .tog-slider { background: var(--accent); border-color: var(--accent); }
+    .tog input:checked + .tog-slider::before { left: 20px; background: #fff; }
+
+    /* ── CONFIGURATOR MODAL ──────────────────────────────────────── */
+    .cfg-overlay {
+      position: fixed; inset: 0; z-index: 400;
+      background: rgba(0,0,0,0.78); backdrop-filter: blur(6px);
+      display: flex; align-items: center; justify-content: center; padding: 20px;
+      opacity: 0; pointer-events: none; transition: opacity 0.25s ease;
+    }
+    .cfg-overlay.open { opacity: 1; pointer-events: all; }
+    .cfg-modal {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r-xl); width: 100%; max-width: 620px;
+      max-height: 90vh; overflow-y: auto; position: relative;
+      transform: translateY(18px); transition: transform 0.25s ease;
+    }
+    .cfg-overlay.open .cfg-modal { transform: translateY(0); }
+    .cfg-close {
+      position: absolute; top: 14px; right: 14px; width: 30px; height: 30px;
+      border-radius: 50%; background: var(--surface-3); border: 1px solid var(--border);
+      cursor: pointer; font-size: 14px; color: var(--text-2);
+      display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+    }
+    .cfg-close:hover { color: var(--text-1); border-color: var(--border-2); }
+
+    /* Progress bar */
+    .cfg-prog { display: flex; align-items: center; padding: 22px 28px 0; }
+    .prg-num {
+      width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; background: var(--surface-3);
+      border: 1.5px solid var(--border-2); color: var(--text-3); transition: all 0.3s;
+    }
+    .prg-num.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .prg-num.done   { background: var(--suc-dim); border-color: var(--success); color: var(--success); }
+    .prg-line { flex: 1; height: 1.5px; background: var(--border); margin: 0 8px; transition: background 0.3s; }
+    .prg-line.done { background: var(--success); }
+
+    /* Header inside modal */
+    .cfg-hd { padding: 18px 28px 0; }
+    .cfg-title { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 3px; }
+    .cfg-sub   { font-size: 13px; color: var(--text-2); }
+    .cfg-body  { padding: 18px 28px; }
+
+    /* Step 1: Mode cards */
+    .mode-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .mode-card  {
+      background: var(--surface-2); border: 2px solid var(--border);
+      border-radius: var(--r-lg); padding: 20px 18px; cursor: pointer; transition: all 0.2s;
+    }
+    .mode-card:hover   { border-color: var(--border-2); }
+    .mode-card.selected { border-color: var(--accent); background: var(--accent-dim); }
+    .mc-icon { font-size: 26px; margin-bottom: 10px; }
+    .mc-name { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+    .mc-desc { font-size: 12px; color: var(--text-2); line-height: 1.6; }
+    .mode-card.selected .mc-name { color: var(--accent); }
+
+    /* Step 2: Field grid */
+    .field-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
+    .field-card {
+      background: var(--surface-2); border: 2px solid var(--border);
+      border-radius: var(--r-md); padding: 12px 8px; cursor: pointer;
+      transition: all 0.2s; text-align: center;
+    }
+    .field-card:hover    { border-color: var(--border-2); }
+    .field-card.selected { border-color: var(--accent); background: var(--accent-dim); }
+    .fc-icon { font-size: 22px; margin-bottom: 6px; }
+    .fc-name { font-size: 11px; font-weight: 600; color: var(--text-2); line-height: 1.3; }
+    .field-card.selected .fc-name { color: var(--accent); }
+    .form-lbl { font-size: 12px; font-weight: 600; color: var(--text-2); margin-bottom: 6px; margin-top: 16px; display: block; }
+    .cfg-select {
+      width: 100%; padding: 11px 14px; background: var(--surface-2);
+      border: 1px solid var(--border); border-radius: var(--r-md);
+      color: var(--text-1); font-family: 'Inter', sans-serif; font-size: 14px;
+      outline: none; cursor: pointer; transition: border-color 0.2s;
+      appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%239191a4' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 14px center;
+    }
+    .cfg-select:focus { border-color: var(--accent); }
+    .cfg-input {
+      width: 100%; padding: 11px 14px; background: var(--surface-2);
+      border: 1px solid var(--border); border-radius: var(--r-md);
+      color: var(--text-1); font-family: 'Inter', sans-serif; font-size: 14px;
+      outline: none; transition: border-color 0.2s;
+    }
+    .cfg-input:focus { border-color: var(--accent); }
+    .cfg-input::placeholder { color: var(--text-3); }
+
+    /* Step 3: Level + Style */
+    .level-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
+    .level-card {
+      background: var(--surface-2); border: 2px solid var(--border);
+      border-radius: var(--r-md); padding: 14px 8px; cursor: pointer;
+      transition: all 0.2s; text-align: center;
+    }
+    .level-card:hover    { border-color: var(--border-2); }
+    .level-card.selected { border-color: var(--accent); background: var(--accent-dim); }
+    .lc-icon { font-size: 20px; margin-bottom: 5px; }
+    .lc-name { font-size: 12px; font-weight: 600; color: var(--text-2); }
+    .lc-yrs  { font-size: 10px; color: var(--text-3); margin-top: 2px; }
+    .level-card.selected .lc-name { color: var(--accent); }
+    .style-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+    .style-card {
+      background: var(--surface-2); border: 2px solid var(--border);
+      border-radius: var(--r-md); padding: 14px 12px; cursor: pointer;
+      transition: all 0.2s; text-align: center;
+    }
+    .style-card:hover    { border-color: var(--border-2); }
+    .style-card.selected { border-color: var(--accent); background: var(--accent-dim); }
+    .sc-icon { font-size: 20px; margin-bottom: 6px; }
+    .sc-name { font-size: 12px; font-weight: 700; color: var(--text-2); margin-bottom: 3px; }
+    .sc-desc { font-size: 11px; color: var(--text-3); line-height: 1.4; }
+    .style-card.selected .sc-name { color: var(--accent); }
+
+    /* Modal footer nav */
+    .cfg-footer { display: flex; align-items: center; justify-content: space-between; padding: 14px 28px 22px; border-top: 1px solid var(--border); }
+    .cfg-step-label { font-size: 12px; color: var(--text-3); margin-right: 10px; }
+    .cfg-back-btn { padding: 9px 18px; background: transparent; border: 1px solid var(--border); border-radius: var(--r-sm); cursor: pointer; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; color: var(--text-2); transition: all 0.2s; }
+    .cfg-back-btn:hover { border-color: var(--border-2); color: var(--text-1); }
+    .cfg-next-btn { padding: 10px 22px; background: var(--accent); border: none; border-radius: var(--r-md); cursor: pointer; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600; color: #fff; transition: all 0.2s; }
+    .cfg-next-btn:hover { background: var(--accent-2); }
+    .cfg-next-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Toast */
+    .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%); background: #1f1f28; border: 1px solid var(--border-2); color: var(--text-1); padding: 10px 20px; border-radius: var(--r-md); font-size: 14px; font-weight: 500; z-index: 500; animation: fadeUp 0.3s ease; pointer-events: none; white-space: nowrap; }
+
+    /* ── FOOTER ──────────────────────────────────────────────────── */
+    .footer { text-align: center; padding: 28px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-3); }
+    .footer a { color: var(--accent); text-decoration: none; }
+
+    /* ── ANIMATIONS ──────────────────────────────────────────────── */
+    @keyframes spin   { to { transform: rotate(360deg); } }
+    @keyframes fadeUp { from { opacity:0; transform: translateY(10px) translateX(-50%); } to { opacity:1; transform: translateY(0) translateX(-50%); } }
+
+    /* ── RESPONSIVE ──────────────────────────────────────────────── */
+    @media (max-width: 900px) {
+      .score-area, .ats-layout { grid-template-columns: 1fr; }
+      .features { grid-template-columns: 1fr 1fr; }
+      .ats-cta  { flex-direction: column; }
+      .ats-hd   { flex-direction: column; }
+      .resume-doc { padding: 32px 28px; }
+      .field-grid { grid-template-columns: repeat(4,1fr); }
+    }
     @media (max-width: 620px) {
-      .top-grid, .grid-2 { grid-template-columns: 1fr; }
+      .nav { padding: 0 16px; }
+      .wrap, .wrap-sm { padding: 0 16px; }
+      .grid-2, .metrics-row { grid-template-columns: 1fr; }
+      .features, .level-grid { grid-template-columns: 1fr 1fr; }
+      .field-grid { grid-template-columns: repeat(2,1fr); }
+      .mode-cards { grid-template-columns: 1fr; }
+      .style-grid { grid-template-columns: 1fr; }
+      .page-hd { flex-direction: column; align-items: flex-start; gap: 10px; }
+      .resume-doc { padding: 24px 20px; }
+      .cta-btns { flex-direction: row; }
     }
   </style>
 </head>
 <body>
 
-  <!-- ══ UPLOAD SCREEN ══════════════════════════════════════════════ -->
-  <div id="upload-screen" class="screen active">
-    <div class="header">
-      <div class="label">AI-POWERED</div>
-      <h1>RESUME<span> ANALYZER</span></h1>
-      <p>INSTANT ATS SCORE · STRENGTHS · WEAKNESSES · KEYWORD GAPS</p>
+<!-- NAV -->
+<nav class="nav">
+  <a class="nav-brand" href="#"><div class="nav-logo">✦</div>ResumeAI</a>
+  <span class="nav-pill">AI-Powered</span>
+</nav>
+
+<!-- ══ UPLOAD SCREEN ════════════════════════════════════════════ -->
+<div id="upload-screen" class="screen active">
+  <div class="wrap-sm">
+    <div class="hero">
+      <div class="hero-eyebrow"><span class="hero-dot"></span>AI-Powered Resume Analysis &amp; Optimization</div>
+      <h1 class="hero-title">Get Your Resume<br/><em>ATS-Ready</em> in Seconds</h1>
+      <p class="hero-sub">Upload your resume, get an ATS score, identify keyword gaps, and generate a professionally optimized version tailored to your profession — powered by advanced AI.</p>
     </div>
-
-    <div id="drop-zone">
-      <div class="icon" id="drop-icon">⬆️</div>
-      <div id="drop-title" class="title">DROP YOUR RESUME HERE</div>
-      <div id="drop-sub" class="sub">or click to browse · PDF only</div>
-      <div id="file-name" style="display:none"></div>
-      <div id="file-size" style="display:none"></div>
-    </div>
-    <input type="file" id="file-input" accept=".pdf" style="display:none"/>
-
-    <textarea id="jd-input" placeholder="PASTE JOB DESCRIPTION HERE (OPTIONAL — BUT UNLOCKS MATCH SCORE)"
-      style="width:100%;margin-top:20px;padding:16px;background:#0a1628;border:2px dashed #1e293b;
-      border-radius:16px;color:#94a3b8;font-family:'DM Mono',monospace;font-size:12px;
-      letter-spacing:1px;line-height:1.7;resize:vertical;min-height:120px;outline:none"></textarea>
-
-    <button id="analyze-btn">ANALYZE RESUME →</button>
-
-    <div class="features">
-      <div class="feature-item"><span class="fi">🎯</span><span class="fl">ATS SCORE</span></div>
-      <div class="feature-item"><span class="fi">💪</span><span class="fl">STRENGTHS</span></div>
-      <div class="feature-item"><span class="fi">⚠️</span><span class="fl">WEAKNESSES</span></div>
-      <div class="feature-item"><span class="fi">🔑</span><span class="fl">MISSING KEYWORDS</span></div>
-    </div>
-  </div>
-
-  <!-- ══ LOADING SCREEN ═════════════════════════════════════════════ -->
-  <div id="loading-screen" class="screen">
-    <span class="spin">⚙️</span>
-    <div class="loading-title">ANALYZING YOUR RESUME</div>
-    <div id="loading-msg">Extracting text from PDF...</div>
-    <div class="dots">
-      <div class="dot"></div><div class="dot"></div><div class="dot"></div>
-    </div>
-  </div>
-
-  <!-- ══ ERROR SCREEN ═══════════════════════════════════════════════ -->
-  <div id="error-screen" class="screen">
-    <div class="error-icon">❌</div>
-    <div class="error-title">ANALYSIS FAILED</div>
-    <div id="error-msg"></div>
-    <button class="retry-btn" onclick="showScreen('upload')">TRY AGAIN</button>
-  </div>
-
-  <!-- ══ RESULT SCREEN ══════════════════════════════════════════════ -->
-  <div id="result-screen" class="screen">
-
-    <div class="result-header">
-      <div>
-        <div class="label">ANALYSIS COMPLETE</div>
-        <h2>YOUR RESUME REPORT</h2>
+    <div class="upload-card">
+      <div id="drop-zone" class="drop-zone">
+        <div class="drop-icon-box" id="drop-icon">📄</div>
+        <div class="drop-title" id="drop-title">Drop your resume here</div>
+        <div class="drop-sub"   id="drop-sub">or click to browse · PDF only</div>
       </div>
-      <button class="new-scan-btn" onclick="showScreen('upload')">← NEW SCAN</button>
+      <input type="file" id="file-input" accept=".pdf" style="display:none"/>
+      <div class="jd-header">Job Description<span class="jd-tag">Optional</span></div>
+      <textarea id="jd-input" rows="5" placeholder="Paste the job description here to unlock match scoring, targeted keyword analysis, and role-specific optimization..."></textarea>
+      <button id="analyze-btn">Analyze Resume →</button>
+    </div>
+    <div class="features">
+      <div class="feat"><div class="feat-icon">🎯</div><div class="feat-name">ATS Score</div><div class="feat-desc">Instant compatibility score against ATS systems used by top employers</div></div>
+      <div class="feat"><div class="feat-icon">🔑</div><div class="feat-name">Keyword Analysis</div><div class="feat-desc">Missing and matched keywords identified against the job description</div></div>
+      <div class="feat"><div class="feat-icon">⚡</div><div class="feat-name">Quick Wins</div><div class="feat-desc">Actionable improvements you can implement in under 30 minutes</div></div>
+      <div class="feat"><div class="feat-icon">✦</div><div class="feat-name">ATS Resume Builder</div><div class="feat-desc">AI fully rebuilds your resume for any profession — optimized or fresh build</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ LOADING SCREEN ═══════════════════════════════════════════ -->
+<div id="loading-screen" class="screen">
+  <div class="loader-ring"></div>
+  <div class="loader-title" id="loader-title">Analyzing your resume</div>
+  <div id="loader-msg">Extracting text from PDF...</div>
+  <div class="loader-steps">
+    <div class="lst active" id="lstep-1"><div class="lst-dot"></div><span id="lstep-1-txt">Extracting PDF content</span></div>
+    <div class="lst"        id="lstep-2"><div class="lst-dot"></div><span id="lstep-2-txt">Running ATS analysis</span></div>
+    <div class="lst"        id="lstep-3"><div class="lst-dot"></div><span id="lstep-3-txt">Generating score &amp; report</span></div>
+  </div>
+</div>
+
+<!-- ══ ERROR SCREEN ═════════════════════════════════════════════ -->
+<div id="error-screen" class="screen">
+  <div class="err-icon">⚠️</div>
+  <div class="err-title">Something Went Wrong</div>
+  <div id="error-msg"></div>
+  <button class="retry-btn" onclick="showScreen('upload')">← Try Again</button>
+</div>
+
+<!-- ══ RESULT SCREEN ════════════════════════════════════════════ -->
+<div id="result-screen" class="screen">
+  <div class="wrap">
+    <div class="page-hd">
+      <div><h1>Resume Analysis</h1><p id="result-file">Analysis complete</p></div>
+      <button class="ghost-btn" onclick="showScreen('upload')">← New Analysis</button>
     </div>
 
-    <!-- Badges -->
     <div class="badges" id="badges"></div>
-
-    <!-- Red Flags -->
-    <div id="red-flags-box" style="display:none">
-      <div class="rf-title">🚨 RED FLAGS — FIX IMMEDIATELY</div>
+    <div class="red-flags" id="red-flags-box">
+      <div class="rf-title">🚨 Critical Issues — Fix Immediately</div>
       <div id="red-flags-list"></div>
     </div>
 
-    <!-- Score + Summary + Section Scores -->
-    <div class="top-grid">
+    <div class="score-area">
       <div class="score-card">
-        <div class="score-block">
-          <div class="ring-wrap">
-            <svg width="140" height="140" id="score-svg">
-              <circle cx="70" cy="70" r="54" fill="none" stroke="#1e293b" stroke-width="10"/>
-              <circle id="score-ring" cx="70" cy="70" r="54" fill="none"
-                stroke="#4ade80" stroke-width="10"
-                stroke-dasharray="339.29" stroke-dashoffset="339.29"
-                stroke-linecap="round"
-                style="transition: stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1)"/>
-            </svg>
-            <div class="ring-overlay">
-              <div class="ring-score" id="score-num">0</div>
-              <div class="ring-label">ATS SCORE</div>
-            </div>
+        <div class="ring-wrap">
+          <svg width="126" height="126">
+            <circle cx="63" cy="63" r="50" fill="none" stroke="#1f1f28" stroke-width="8"/>
+            <circle id="score-ring" cx="63" cy="63" r="50" fill="none"
+              stroke="#6366f1" stroke-width="8"
+              stroke-dasharray="314.16" stroke-dashoffset="314.16"
+              stroke-linecap="round"
+              style="transition:stroke-dashoffset 1.3s cubic-bezier(.4,0,.2,1)"/>
+          </svg>
+          <div class="ring-overlay">
+            <div class="ring-num" id="score-num">0</div>
+            <div class="ring-lbl">ATS Score</div>
           </div>
-          <div class="ring-grade" id="score-grade">—</div>
         </div>
+        <div class="grade-pill" id="score-grade">—</div>
       </div>
-
       <div class="score-col">
-        <div class="card">
-          <div class="card-header">
-            <span>📋</span>
-            <span class="card-title" style="color:var(--green)">EXECUTIVE SUMMARY</span>
-          </div>
-          <p id="summary-text" style="font-size:13px;color:var(--text);line-height:1.8"></p>
-        </div>
-        <div class="card">
-          <div class="card-header">
-            <span>📊</span>
-            <span class="card-title" style="color:var(--green)">SECTION SCORES</span>
-          </div>
-          <div id="section-bars"></div>
-        </div>
+        <div class="card fill"><div class="card-lbl">Executive Summary</div><p class="summary-body" id="summary-text"></p></div>
+        <div class="card"><div class="card-lbl">Section Scores</div><div id="section-bars"></div></div>
       </div>
     </div>
 
-    <!-- Strengths + Weaknesses -->
+    <div class="metrics-row">
+      <div class="metric"><div class="metric-lbl">JD Match Score</div><div class="metric-val" id="match-val" style="color:var(--accent)">—</div><div class="metric-sub">vs job description</div></div>
+      <div class="metric"><div class="metric-lbl">Missing Keywords</div><div class="metric-val" id="miss-cnt" style="color:var(--error)">0</div><div class="metric-sub">to integrate</div></div>
+      <div class="metric"><div class="metric-lbl">Matched Keywords</div><div class="metric-val" id="hit-cnt" style="color:var(--success)">0</div><div class="metric-sub">already present</div></div>
+    </div>
+
     <div class="grid-2">
       <div class="card">
-        <div class="card-header">
-          <span>💪</span><span class="card-title" style="color:var(--green)">STRENGTHS</span>
-        </div>
-        <ul class="result-list" id="strengths-list"></ul>
+        <div class="card-hd"><span class="card-hd-icon">🔑</span><span class="card-hd-title">Missing ATS Keywords</span></div>
+        <div class="tag-wrap" id="missing-tags"></div>
+        <div class="tag-note">Integrate these naturally into your experience bullets</div>
       </div>
       <div class="card">
-        <div class="card-header">
-          <span>⚠️</span><span class="card-title" style="color:var(--red)">WEAKNESSES</span>
-        </div>
-        <ul class="result-list" id="weaknesses-list"></ul>
+        <div class="card-hd"><span class="card-hd-icon">✓</span><span class="card-hd-title">Matched Keywords</span></div>
+        <div class="tag-wrap" id="matched-tags"></div>
       </div>
     </div>
-
-    <!-- Keywords + Suggestions -->
     <div class="grid-2">
-      <div class="card">
-        <div class="card-header">
-          <span>🔑</span><span class="card-title" style="color:var(--yellow)">MISSING ATS KEYWORDS</span>
-        </div>
-        <div class="tags-wrap" id="keywords-wrap"></div>
-        <div class="tags-note">Weave these naturally into your experience bullets</div>
-      </div>
-      <div class="card">
-        <div class="card-header">
-          <span>💡</span><span class="card-title" style="color:var(--purple)">DEEP-DIVE SUGGESTIONS</span>
-        </div>
-        <ol class="result-ol" id="suggestions-list"></ol>
-      </div>
+      <div class="card"><div class="card-hd"><span class="card-hd-icon">💪</span><span class="card-hd-title">Strengths</span></div><ul class="dot-list" id="strengths-list"></ul></div>
+      <div class="card"><div class="card-hd"><span class="card-hd-icon">⚠️</span><span class="card-hd-title">Areas to Improve</span></div><ul class="dot-list" id="weaknesses-list"></ul></div>
+    </div>
+    <div class="grid-2" style="margin-bottom:14px">
+      <div class="card col-full"><div class="card-hd"><span class="card-hd-icon">💡</span><span class="card-hd-title">Deep-Dive Suggestions</span></div><ol class="num-list" id="suggestions-list"></ol></div>
+    </div>
+    <div class="card" style="margin-bottom:0">
+      <div class="card-hd"><span class="card-hd-icon">⚡</span><span class="card-hd-title">Quick Wins — Do These Right Now</span></div>
+      <div class="qw-grid" id="qw-grid"></div>
     </div>
 
-    <!-- Quick Wins -->
-    <div class="card" id="quick-wins-card" style="margin-bottom:16px">
-      <div class="card-header">
-        <span>⚡</span><span class="card-title" style="color:var(--teal)">QUICK WINS — DO THESE RIGHT NOW</span>
+    <!-- TWO CTA BUTTONS -->
+    <div class="ats-cta">
+      <div class="ats-cta-left">
+        <h3>✦ Generate Your ATS-Optimized Resume</h3>
+        <p>Choose how you'd like to build your resume. Optimize your existing one with a complete ATS rewrite, or rebuild it fresh — fully tailored to your profession, experience level, and writing style.</p>
+        <div class="cta-pills">
+          <span class="cta-pill">Full Content Rewrite</span>
+          <span class="cta-pill">Profession-Specific Tailoring</span>
+          <span class="cta-pill">5+ Bullets Per Role</span>
+          <span class="cta-pill">Quantified Achievements</span>
+          <span class="cta-pill">8 Professional Fields</span>
+        </div>
       </div>
-      <div class="qw-grid" id="quick-wins-grid"></div>
+      <div class="cta-btns">
+        <button class="cta-outline" id="optimize-btn" onclick="openCfg('optimize')">🔧 Optimize My Resume</button>
+        <button class="cta-filled"  id="fresh-btn"    onclick="openCfg('fresh')">✨ Build Fresh Resume →</button>
+      </div>
     </div>
-
-    <div class="footer">POWERED BY groq · BUILT WITH HTML, CSS & JAVASCRIPT</div>
   </div>
+  <div class="footer">Powered by <a href="https://groq.com" target="_blank">Groq</a> · ResumeAI</div>
+</div>
 
-  <!-- ══ SCRIPT ═════════════════════════════════════════════════════ -->
-  <script>
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+<!-- ══ ATS RESUME SCREEN ════════════════════════════════════════ -->
+<div id="ats-resume-screen" class="screen">
+  <div class="wrap">
+    <div class="ats-hd">
+      <div>
+        <h1>ATS-Optimized Resume</h1>
+        <div class="cfg-used" id="cfg-used"></div>
+        <div class="score-diff">
+          <span class="sd-before" id="sd-before">Before: —</span>
+          <span class="sd-arrow">→</span>
+          <span class="sd-after"  id="sd-after">After: —</span>
+          <span class="sd-delta"  id="sd-delta" style="display:none"></span>
+        </div>
+      </div>
+      <div class="ats-hd-btns">
+        <button class="outline-btn" onclick="showScreen('result')">← Back to Analysis</button>
+      </div>
+    </div>
+    <div class="ats-layout">
+      <div class="resume-doc" id="resume-preview"></div>
+      <div class="ats-sidebar">
+        <div class="sb-card">
+          <div class="sb-title">Display Options</div>
+          <div class="toggle-row">
+            <span class="toggle-lbl">Highlight injected keywords</span>
+            <label class="tog"><input type="checkbox" id="hl-toggle" checked onchange="toggleHL(this.checked)"/><div class="tog-slider"></div></label>
+          </div>
+        </div>
+        <div class="sb-card">
+          <div class="sb-title">Download Resume</div>
+          <div class="dl-btns">
+            <button class="dl-btn" onclick="dlTXT()">⬇ Download as .txt</button>
+            <button class="dl-btn accent" onclick="dlHTML()">⬇ Download as .html</button>
+            <button class="dl-btn" id="copy-btn" onclick="copyText(this)">📋 Copy plain text</button>
+          </div>
+        </div>
+        <div class="sb-card"><div class="sb-title">Improvements Made</div><div class="improvements" id="improvements-list"></div></div>
+        <div class="sb-card"><div class="sb-title">Keywords Integrated</div><div class="tag-wrap" id="injected-tags"></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer" style="margin-top:48px">Powered by <a href="https://groq.com" target="_blank">Groq</a> · llama-3.3-70b-versatile · ResumeAI</div>
+</div>
 
-    let selectedFile = null;
+<!-- ══ CONFIGURATOR MODAL ═══════════════════════════════════════ -->
+<div id="cfg-overlay" class="cfg-overlay" onclick="handleOverlayClick(event)" role="dialog" aria-modal="true">
+  <div class="cfg-modal">
+    <button class="cfg-close" onclick="closeCfg()" aria-label="Close">✕</button>
 
-    // ── Screen manager ──────────────────────────────────────────────
-    function showScreen(name) {
-      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-      document.getElementById(name + '-screen').classList.add('active');
+    <!-- Progress -->
+    <div class="cfg-prog" id="cfg-prog"></div>
+
+    <!-- Header -->
+    <div class="cfg-hd">
+      <div class="cfg-title" id="cfg-title"></div>
+      <div class="cfg-sub"   id="cfg-sub"></div>
+    </div>
+
+    <!-- Steps -->
+    <div class="cfg-body">
+
+      <!-- STEP 1: Mode -->
+      <div id="cfg-step-1">
+        <div class="mode-cards">
+          <div class="mode-card" id="mc-optimize" onclick="cfgSelectMode('optimize')">
+            <div class="mc-icon">🔧</div>
+            <div class="mc-name">Optimize &amp; Improve</div>
+            <div class="mc-desc">Complete ATS rewrite of your existing resume — every section rebuilt with stronger action verbs, quantified results, and targeted keywords. Zero original phrasing preserved.</div>
+          </div>
+          <div class="mode-card" id="mc-fresh" onclick="cfgSelectMode('fresh')">
+            <div class="mc-icon">✨</div>
+            <div class="mc-name">Fresh ATS Resume</div>
+            <div class="mc-desc">Rebuild your resume from the ground up as the ideal candidate profile for your target role and industry. Uses your real experience, completely reimagined.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 2: Field & Role -->
+      <div id="cfg-step-2" class="hidden">
+        <div class="field-grid" id="field-grid"></div>
+        <div id="role-area" style="display:none">
+          <label class="form-lbl">Specific Role / Job Title</label>
+          <select id="role-select" class="cfg-select" onchange="cfgRoleChange(this)">
+            <option value="">Select your role...</option>
+          </select>
+          <input id="role-custom" class="cfg-input hidden" placeholder="Type your specific role or job title..." oninput="cfgState.role = this.value" style="margin-top:8px"/>
+        </div>
+      </div>
+
+      <!-- STEP 3: Level & Style -->
+      <div id="cfg-step-3" class="hidden">
+        <div class="form-lbl" style="margin-top:0">Experience Level</div>
+        <div class="level-grid" id="level-grid"></div>
+        <div class="form-lbl" style="margin-top:20px">Resume Style</div>
+        <div class="style-grid" id="style-grid"></div>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="cfg-footer">
+      <button class="cfg-back-btn" id="cfg-back" onclick="cfgPrev()">← Back</button>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="cfg-step-label" id="cfg-step-lbl">Step 1 of 3</span>
+        <button class="cfg-next-btn" id="cfg-next" onclick="cfgNext()">Next →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SCRIPT ════════════════════════════════════════════════════ -->
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  let selectedFile    = null;
+  let currentAnalysis = null;
+  let currentText     = null;
+  let currentATS      = null;
+
+  /* ── Screen Manager ────────────────────────────────────────── */
+  function showScreen(name) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(name + '-screen').classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  /* ── File Handling ─────────────────────────────────────────── */
+  const dz  = document.getElementById('drop-zone');
+  const fin = document.getElementById('file-input');
+  dz.addEventListener('click',     () => fin.click());
+  dz.addEventListener('dragover',  e  => { e.preventDefault(); dz.classList.add('drag-over'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+  dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); setFile(e.dataTransfer.files[0]); });
+  fin.addEventListener('change', e => setFile(e.target.files[0]));
+
+  function setFile(f) {
+    if (!f || f.type !== 'application/pdf') return;
+    selectedFile = f;
+    dz.classList.add('has-file');
+    document.getElementById('drop-icon').textContent  = '✓';
+    document.getElementById('drop-title').textContent = f.name;
+    document.getElementById('drop-sub').textContent   = (f.size / 1024).toFixed(1) + ' KB · Click to change';
+    document.getElementById('analyze-btn').style.display = 'block';
+  }
+
+  /* ── Analyze ───────────────────────────────────────────────── */
+  document.getElementById('analyze-btn').addEventListener('click', analyze);
+
+  async function analyze() {
+    if (!selectedFile) return;
+    setLoaderState('Analyzing your resume', 'Extracting text from PDF...', [
+      { id: 'lstep-1', txt: 'Extracting PDF content',      cls: 'active' },
+      { id: 'lstep-2', txt: 'Running ATS analysis',        cls: '' },
+      { id: 'lstep-3', txt: 'Generating score & report',   cls: '' }
+    ]);
+    showScreen('loading');
+    try {
+      const text = await extractPDF(selectedFile);
+      if (!text.trim()) throw new Error('Could not extract text. Please use a text-based (not scanned) PDF.');
+      currentText = text;
+      advanceStep('lstep-1', 'lstep-2', 'Sending to AI for deep analysis...');
+      const data = await callAnalyze(text);
+      currentAnalysis = data;
+      advanceStep('lstep-2', 'lstep-3', 'Finalizing your report...');
+      await sleep(500);
+      renderResult(data);
+      showScreen('result');
+    } catch (err) {
+      document.getElementById('error-msg').textContent = err.message || 'Something went wrong.';
+      showScreen('error');
     }
+  }
 
-    // ── File handling ───────────────────────────────────────────────
-    const dropZone  = document.getElementById('drop-zone');
-    const fileInput = document.getElementById('file-input');
-
-    dropZone.addEventListener('click', () => fileInput.click());
-    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-    dropZone.addEventListener('drop', e => {
-      e.preventDefault(); dropZone.classList.remove('drag-over');
-      setFile(e.dataTransfer.files[0]);
+  /* ── Loader Helpers ────────────────────────────────────────── */
+  function setLoaderState(title, msg, steps) {
+    document.getElementById('loader-title').textContent = title;
+    document.getElementById('loader-msg').textContent   = msg;
+    steps.forEach(s => {
+      const el = document.getElementById(s.id);
+      if (el) { el.className = 'lst ' + s.cls; el.querySelector('span').textContent = s.txt; }
     });
-    fileInput.addEventListener('change', e => setFile(e.target.files[0]));
+  }
+  function advanceStep(doneId, activeId, msg) {
+    const d = document.getElementById(doneId);
+    const a = document.getElementById(activeId);
+    if (d) d.className = 'lst done';
+    if (a) a.className = 'lst active';
+    document.getElementById('loader-msg').textContent = msg;
+  }
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-    function setFile(file) {
-      if (!file || file.type !== 'application/pdf') return;
-      selectedFile = file;
-      dropZone.classList.add('has-file');
-      document.getElementById('drop-icon').textContent = '📄';
-      document.getElementById('drop-title').style.display = 'none';
-      document.getElementById('drop-sub').style.display  = 'none';
-      const fn = document.getElementById('file-name');
-      const fs = document.getElementById('file-size');
-      fn.textContent = file.name;
-      fs.textContent = (file.size / 1024).toFixed(1) + ' KB · Click to change';
-      fn.style.display = 'block';
-      fs.style.display = 'block';
-      document.getElementById('analyze-btn').style.display = 'block';
+  /* ── PDF Extraction ────────────────────────────────────────── */
+  async function extractPDF(file) {
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    let txt = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page    = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      txt += content.items.map(it => it.str).join(' ') + '\n';
     }
+    return txt;
+  }
 
-    // ── Analyze ─────────────────────────────────────────────────────
-    document.getElementById('analyze-btn').addEventListener('click', analyze);
-
-    async function analyze() {
-      if (!selectedFile) return;
-      showScreen('loading');
-      setLoading('Extracting text from PDF...');
-      try {
-        const text = await extractTextFromPDF(selectedFile);
-        if (!text.trim()) throw new Error('Could not extract text. Please use a text-based PDF.');
-        setLoading('Sending to AI for deep analysis...');
-        const data = await analyzeResume(text);
-        renderResult(data);
-        showScreen('result');
-      } catch (err) {
-        document.getElementById('error-msg').textContent = err.message || 'Something went wrong.';
-        showScreen('error');
-      }
+  /* ── API: Analyze ──────────────────────────────────────────── */
+  async function callAnalyze(resumeText) {
+    const res = await fetch('/analyze', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resumeText, jobDescription: document.getElementById('jd-input').value })
+    });
+    if (!res.ok) {
+      const t = await res.text();
+      try { throw new Error(JSON.parse(t).error || 'Server error.'); }
+      catch(e) { if (e.message !== 'Server error.') throw e; throw new Error(t || 'Server error.'); }
     }
+    return res.json();
+  }
 
-    function setLoading(msg) {
-      document.getElementById('loading-msg').textContent = msg;
+  /* ── Score Color ───────────────────────────────────────────── */
+  function sc(s) { return s >= 80 ? '#22c55e' : s >= 60 ? '#f59e0b' : '#ef4444'; }
+
+  /* ── Render Results ────────────────────────────────────────── */
+  function renderResult(r) {
+    const circ   = 2 * Math.PI * 50;
+    const offset = circ - (r.atsScore / 100) * circ;
+    const color  = sc(r.atsScore);
+    const ring   = document.getElementById('score-ring');
+    ring.setAttribute('stroke', color);
+    setTimeout(() => ring.setAttribute('stroke-dashoffset', offset), 100);
+    animNum(document.getElementById('score-num'), 0, r.atsScore, 1200, color);
+    const gradeEl = document.getElementById('score-grade');
+    gradeEl.textContent = r.grade || '—'; gradeEl.style.color = color;
+    document.getElementById('summary-text').textContent = r.summary || '';
+    document.getElementById('result-file').textContent  = selectedFile ? selectedFile.name : 'Analysis complete';
+
+    const badgesEl = document.getElementById('badges');
+    badgesEl.innerHTML = '';
+    if (r.industryFit)     badgesEl.innerHTML += `<span class="badge badge-a">🏢 ${r.industryFit}</span>`;
+    if (r.experienceLevel) badgesEl.innerHTML += `<span class="badge badge-a">🎯 ${r.experienceLevel}</span>`;
+    if (r.matchScore)      badgesEl.innerHTML += `<span class="badge badge-s">✓ JD Match: ${r.matchScore}%</span>`;
+
+    const mv = document.getElementById('match-val');
+    mv.textContent = r.matchScore ? r.matchScore + '%' : 'N/A';
+    mv.style.color = r.matchScore ? sc(r.matchScore) : 'var(--text-3)';
+    document.getElementById('miss-cnt').textContent = (r.missingKeywords || []).length;
+    document.getElementById('hit-cnt').textContent  = (r.matchedKeywords  || []).length;
+
+    const rfBox  = document.getElementById('red-flags-box');
+    const flags  = (r.redFlags || []).filter(f => f && f.trim());
+    rfBox.style.display = flags.length ? 'block' : 'none';
+    document.getElementById('red-flags-list').innerHTML = flags.map(f => `<div class="rf-item">• ${f}</div>`).join('');
+
+    const barsEl = document.getElementById('section-bars');
+    barsEl.innerHTML = '';
+    for (const [k, v] of Object.entries(r.sectionScores || {})) {
+      const c = sc(v);
+      barsEl.innerHTML += `<div class="bar-row"><div class="bar-top"><span class="bar-key">${k}</span><span class="bar-pct" style="color:${c}">${v}%</span></div><div class="bar-bg"><div class="bar-fill" data-v="${v}" style="background:${c}"></div></div></div>`;
     }
+    setTimeout(() => { document.querySelectorAll('.bar-fill').forEach(el => el.style.width = el.dataset.v + '%'); }, 120);
 
-    // ── PDF extraction ───────────────────────────────────────────────
-    async function extractTextFromPDF(file) {
-      const buffer = await file.arrayBuffer();
-      const pdf    = await pdfjsLib.getDocument({ data: buffer }).promise;
-      let text = '';
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page    = await pdf.getPage(i);
-        const content = await page.getTextContent();
-        text += content.items.map(item => item.str).join(' ') + '\n';
-      }
-      return text;
+    document.getElementById('missing-tags').innerHTML = (r.missingKeywords || []).map(k => `<span class="tag-miss">${k}</span>`).join('');
+    document.getElementById('matched-tags').innerHTML = (r.matchedKeywords  || []).map(k => `<span class="tag-hit">${k}</span>`).join('');
+    document.getElementById('strengths-list').innerHTML  = (r.strengths  || []).map(s => `<li>${s}</li>`).join('');
+    document.getElementById('weaknesses-list').innerHTML = (r.weaknesses || []).map(w => `<li>${w}</li>`).join('');
+    document.getElementById('suggestions-list').innerHTML = (r.suggestions || []).map(s => `<li>${s}</li>`).join('');
+    document.getElementById('qw-grid').innerHTML = (r.quickWins || []).map((w,i) =>
+      `<div class="qw-item"><span class="qw-num">0${i+1}</span><span class="qw-txt">${w}</span></div>`).join('');
+  }
+
+  function animNum(el, from, to, dur, color) {
+    el.style.color = color;
+    const t0 = performance.now();
+    (function step(now) {
+      const p = Math.min((now - t0) / dur, 1);
+      el.textContent = Math.round(from + (to - from) * (1 - Math.pow(1 - p, 3)));
+      if (p < 1) requestAnimationFrame(step);
+    })(performance.now());
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     CONFIGURATOR DATA
+  ═══════════════════════════════════════════════════════════ */
+  const FIELDS = [
+    { id: 'technology',  icon: '💻', name: 'Technology' },
+    { id: 'business',    icon: '📊', name: 'Business & Finance' },
+    { id: 'engineering', icon: '⚙️', name: 'Engineering' },
+    { id: 'healthcare',  icon: '🏥', name: 'Healthcare' },
+    { id: 'creative',    icon: '🎨', name: 'Creative & Media' },
+    { id: 'education',   icon: '📚', name: 'Education & Research' },
+    { id: 'legal',       icon: '⚖️', name: 'Legal & HR' },
+    { id: 'operations',  icon: '🚛', name: 'Operations & Supply Chain' },
+  ];
+
+  const ROLES = {
+    technology:  ['Software Engineer','Frontend Developer','Backend Developer','Full Stack Developer','Data Scientist','Machine Learning Engineer','Data Analyst','DevOps / Cloud Engineer','Cybersecurity Analyst','Mobile Developer (iOS/Android)','Product Manager','QA / Test Engineer','Systems Architect','Database Administrator','AI/ML Researcher','Site Reliability Engineer'],
+    business:    ['Financial Analyst','Investment Banker','Accountant / CPA','Business Analyst','Marketing Manager','Digital Marketing Specialist','Sales Manager','Account Executive','MBA Graduate (General)','Operations Manager','Strategy Consultant','Brand Manager','E-commerce Manager','Risk Analyst','Management Consultant','Business Development Manager'],
+    engineering: ['Civil Engineer','Structural Engineer','Mechanical Engineer','Electrical Engineer','Chemical Engineer','Environmental Engineer','Aerospace Engineer','Biomedical Engineer','Industrial Engineer','Project Engineer','Construction Manager','Quality Assurance Engineer','Process Engineer','Manufacturing Engineer','Geotechnical Engineer'],
+    healthcare:  ['Physician / Doctor','Registered Nurse','Nurse Practitioner','Pharmacist','Healthcare Administrator','Physical Therapist','Occupational Therapist','Clinical Research Coordinator','Medical Technologist','Public Health Specialist','Healthcare Data Analyst','Radiologist','Dentist','Medical Laboratory Scientist','Hospital Administrator'],
+    creative:    ['UX/UI Designer','Graphic Designer','Content Writer / Editor','Digital Marketing / SEO Specialist','Social Media Manager','Art Director','Copywriter / Creative Writer','Video Editor / Producer','Brand Strategist','Creative Director','Photographer / Videographer','Motion Graphics Designer','Web Designer'],
+    education:   ['Teacher (K-12)','University Professor / Lecturer','Academic Researcher','Instructional Designer','School Counselor / Advisor','Education Administrator','Curriculum Developer','Corporate Trainer / L&D','E-Learning Developer','Special Education Teacher','Dean / Academic Director'],
+    legal:       ['Attorney / Lawyer','Paralegal','Legal Analyst','Compliance Officer','HR Manager','HR Business Partner','Talent Acquisition / Recruiter','Contract Manager','Corporate Counsel','Immigration Specialist','Labor Relations Specialist','Legal Secretary / Assistant'],
+    operations:  ['Supply Chain Manager','Logistics Coordinator','Operations Analyst','Warehouse Manager','Project Manager (PMP)','Business Operations Manager','Fleet Manager','Inventory Analyst','Distribution Manager','Procurement Manager','Facilities Manager','Manufacturing Operations Manager'],
+  };
+
+  const LEVELS = [
+    { id: 'entry',     icon: '🌱', name: 'Entry Level',  yrs: '0–2 years' },
+    { id: 'mid',       icon: '📈', name: 'Mid Level',     yrs: '3–7 years' },
+    { id: 'senior',    icon: '⭐', name: 'Senior Level',  yrs: '8–15 years' },
+    { id: 'executive', icon: '👑', name: 'Executive',     yrs: '15+ years' },
+  ];
+
+  const STYLES = [
+    { id: 'professional', icon: '🏛️', name: 'Professional', desc: 'Formal & traditional — Finance, Law, Government' },
+    { id: 'modern',       icon: '⚡', name: 'Modern',       desc: 'Bold & dynamic — Tech, Startups, Creative' },
+    { id: 'executive',    icon: '💼', name: 'Executive',    desc: 'Strategic & visionary — C-Suite, VP, Director' },
+  ];
+
+  const CFG_META = {
+    1: { title: 'How would you like to proceed?',   sub: 'Choose your resume building mode' },
+    2: { title: 'Professional Field & Target Role', sub: 'Help the AI tailor your resume precisely' },
+    3: { title: 'Experience Level & Resume Style',  sub: 'Personalize the tone and presentation' },
+  };
+
+  /* ── Configurator State ────────────────────────────────────── */
+  const cfgState = { step: 1, mode: null, field: null, role: '', level: null, style: null };
+
+  function openCfg(preMode) {
+    cfgState.mode  = preMode;
+    cfgState.field = null;
+    cfgState.role  = '';
+    cfgState.level = null;
+    cfgState.style = null;
+    renderFieldGrid();
+    renderLevelGrid();
+    renderStyleGrid();
+    cfgSetStep(preMode ? 2 : 1);
+    // Pre-highlight the mode card
+    document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
+    const mc = document.getElementById('mc-' + preMode);
+    if (mc) mc.classList.add('selected');
+    document.getElementById('cfg-overlay').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeCfg() {
+    document.getElementById('cfg-overlay').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  function handleOverlayClick(e) {
+    if (e.target === document.getElementById('cfg-overlay')) closeCfg();
+  }
+
+  function cfgSetStep(n) {
+    cfgState.step = n;
+    // Show/hide steps
+    [1,2,3].forEach(i => document.getElementById('cfg-step-' + i).classList.toggle('hidden', i !== n));
+    // Update header
+    document.getElementById('cfg-title').textContent = CFG_META[n].title;
+    document.getElementById('cfg-sub').textContent   = CFG_META[n].sub;
+    // Step label
+    document.getElementById('cfg-step-lbl').textContent = `Step ${n} of 3`;
+    // Back button
+    document.getElementById('cfg-back').style.visibility = n === 1 ? 'hidden' : 'visible';
+    // Next button label
+    document.getElementById('cfg-next').textContent = n === 3 ? 'Build My Resume →' : 'Continue →';
+    // Render progress
+    renderCfgProgress(n);
+    // Role area visibility on step 2
+    if (n === 2) {
+      const roleArea = document.getElementById('role-area');
+      roleArea.style.display = cfgState.field ? 'block' : 'none';
     }
+  }
 
-    // ── API call to our secure backend ──────────────────────────────
-    async function analyzeResume(resumeText) {
-      const res  = await fetch('/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resumeText, jobDescription: document.getElementById('jd-input').value })
-      });
-
-      if (!res.ok) {
-        const text = await res.text();
-        try {
-          const err = JSON.parse(text);
-          throw new Error(err.error || 'Server error. Please try again.');
-        } catch (parseErr) {
-          throw new Error(text || 'Server error. Please try again.');
-        }
-      }
-
-      try {
-        return await res.json();
-      } catch (e) {
-        console.error('Failed to parse response:', e);
-        throw new Error('Invalid response from server.');
-      }
+  function renderCfgProgress(cur) {
+    const prog = document.getElementById('cfg-prog');
+    let html = '';
+    for (let i = 1; i <= 3; i++) {
+      const cls = i < cur ? 'done' : i === cur ? 'active' : '';
+      html += `<div class="prg-num ${cls}">${i < cur ? '✓' : i}</div>`;
+      if (i < 3) html += `<div class="prg-line ${i < cur ? 'done' : ''}"></div>`;
     }
+    prog.innerHTML = html;
+  }
 
+  function cfgSelectMode(mode) {
+    cfgState.mode = mode;
+    document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
+    document.getElementById('mc-' + mode).classList.add('selected');
+  }
 
-    // ── Render results ───────────────────────────────────────────────
-    function scoreColor(s) {
-      return s >= 80 ? '#4ade80' : s >= 60 ? '#facc15' : '#f87171';
+  function renderFieldGrid() {
+    document.getElementById('field-grid').innerHTML = FIELDS.map(f =>
+      `<div class="field-card${cfgState.field === f.id ? ' selected' : ''}" id="fc-${f.id}" onclick="cfgSelectField('${f.id}')">
+        <div class="fc-icon">${f.icon}</div><div class="fc-name">${f.name}</div>
+      </div>`).join('');
+  }
+
+  function cfgSelectField(fieldId) {
+    cfgState.field = fieldId;
+    cfgState.role  = '';
+    document.querySelectorAll('.field-card').forEach(c => c.classList.remove('selected'));
+    document.getElementById('fc-' + fieldId).classList.add('selected');
+    const roleArea = document.getElementById('role-area');
+    roleArea.style.display = 'block';
+    const sel = document.getElementById('role-select');
+    const roles = ROLES[fieldId] || [];
+    sel.innerHTML = '<option value="">Select your role...</option>' +
+      roles.map(r => `<option value="${r}">${r}</option>`).join('') +
+      '<option value="__custom__">Other — type your role below...</option>';
+    sel.value = '';
+    document.getElementById('role-custom').classList.add('hidden');
+    document.getElementById('role-custom').value = '';
+  }
+
+  function cfgRoleChange(sel) {
+    const custom = document.getElementById('role-custom');
+    if (sel.value === '__custom__') {
+      custom.classList.remove('hidden'); cfgState.role = '';
+    } else {
+      custom.classList.add('hidden'); cfgState.role = sel.value;
     }
+  }
 
-    function renderResult(r) {
-      const circumference = 2 * Math.PI * 54;
-      const offset = circumference - (r.atsScore / 100) * circumference;
-      const color  = scoreColor(r.atsScore);
-      const ring   = document.getElementById('score-ring');
-      ring.setAttribute('stroke', color);
-      ring.style.filter = `drop-shadow(0 0 8px ${color})`;
-      setTimeout(() => ring.setAttribute('stroke-dashoffset', offset), 100);
+  function renderLevelGrid() {
+    document.getElementById('level-grid').innerHTML = LEVELS.map(l =>
+      `<div class="level-card${cfgState.level === l.id ? ' selected' : ''}" id="lc-${l.id}" onclick="cfgSelectLevel('${l.id}')">
+        <div class="lc-icon">${l.icon}</div><div class="lc-name">${l.name}</div><div class="lc-yrs">${l.yrs}</div>
+      </div>`).join('');
+  }
 
-      document.getElementById('score-num').textContent  = r.atsScore;
-      document.getElementById('score-num').style.color  = color;
-      document.getElementById('score-grade').textContent = r.grade;
-      document.getElementById('score-grade').style.color = color;
+  function cfgSelectLevel(id) {
+    cfgState.level = id;
+    document.querySelectorAll('.level-card').forEach(c => c.classList.remove('selected'));
+    document.getElementById('lc-' + id).classList.add('selected');
+  }
 
-      document.getElementById('summary-text').textContent = r.summary;
+  function renderStyleGrid() {
+    document.getElementById('style-grid').innerHTML = STYLES.map(s =>
+      `<div class="style-card${cfgState.style === s.id ? ' selected' : ''}" id="sc-${s.id}" onclick="cfgSelectStyle('${s.id}')">
+        <div class="sc-icon">${s.icon}</div><div class="sc-name">${s.name}</div><div class="sc-desc">${s.desc}</div>
+      </div>`).join('');
+  }
 
-      const badges = document.getElementById('badges');
-      badges.innerHTML = '';
-      if (r.industryFit)
-        badges.innerHTML += `<span class="badge badge-green">🏢 ${r.industryFit}</span>`;
-      if (r.experienceLevel)
-        badges.innerHTML += `<span class="badge badge-purple">🎯 ${r.experienceLevel}</span>`;
-      if (r.matchScore)
-        badges.innerHTML += `<span class="badge badge-purple">🎯 JD MATCH: ${r.matchScore}%</span>`;
+  function cfgSelectStyle(id) {
+    cfgState.style = id;
+    document.querySelectorAll('.style-card').forEach(c => c.classList.remove('selected'));
+    document.getElementById('sc-' + id).classList.add('selected');
+  }
 
-      const rfBox  = document.getElementById('red-flags-box');
-      const rfList = document.getElementById('red-flags-list');
-      const flags  = (r.redFlags || []).filter(f => f && f.trim());
-      if (flags.length) {
-        rfBox.style.display = 'block';
-        rfList.innerHTML = flags.map(f => `<div class="rf-item">• ${f}</div>`).join('');
+  function cfgNext() {
+    const { step, mode, field, level, style } = cfgState;
+    if (step === 1) {
+      if (!mode) { toast('Please choose a mode to continue'); return; }
+      cfgSetStep(2);
+    } else if (step === 2) {
+      if (!field) { toast('Please select your professional field'); return; }
+      // Resolve role from either select or custom input
+      const sel    = document.getElementById('role-select');
+      const custom = document.getElementById('role-custom').value.trim();
+      if (sel.value === '__custom__') {
+        cfgState.role = custom || 'Professional';
+      } else if (sel.value) {
+        cfgState.role = sel.value;
       } else {
-        rfBox.style.display = 'none';
+        cfgState.role = custom || FIELDS.find(f => f.id === field)?.name + ' Professional' || 'Professional';
       }
-
-      const barsEl = document.getElementById('section-bars');
-      barsEl.innerHTML = '';
-      for (const [key, val] of Object.entries(r.sectionScores || {})) {
-        const c = scoreColor(val);
-        barsEl.innerHTML += `
-          <div class="bar-row">
-            <div class="bar-top">
-              <span class="bar-key">${key}</span>
-              <span class="bar-val" style="color:${c}">${val}%</span>
-            </div>
-            <div class="bar-bg">
-              <div class="bar-fill" style="width:${val}%;background:${c};box-shadow:0 0 6px ${c}"></div>
-            </div>
-          </div>`;
-      }
-
-      document.getElementById('strengths-list').innerHTML =
-        (r.strengths || []).map(s => `<li>${s}</li>`).join('');
-
-      document.getElementById('weaknesses-list').innerHTML =
-        (r.weaknesses || []).map(w => `<li>${w}</li>`).join('');
-
-      document.getElementById('keywords-wrap').innerHTML =
-        (r.missingKeywords || []).map(k => `<span class="tag">${k}</span>`).join('');
-
-      document.getElementById('suggestions-list').innerHTML =
-        (r.suggestions || []).map(s => `<li>${s}</li>`).join('');
-
-      const qwGrid = document.getElementById('quick-wins-grid');
-      qwGrid.innerHTML = (r.quickWins || []).map((w, i) =>
-        `<div class="qw-item"><span class="qw-num">0${i+1} </span>${w}</div>`
-      ).join('');
+      cfgSetStep(3);
+    } else if (step === 3) {
+      if (!level) { toast('Please select your experience level'); return; }
+      if (!style) { toast('Please choose a resume style'); return; }
+      closeCfg();
+      startBuild();
     }
-  </script>
+  }
+
+  function cfgPrev() {
+    if (cfgState.step > 1) cfgSetStep(cfgState.step - 1);
+  }
+
+  function toast(msg) {
+    const existing = document.querySelector('.toast');
+    if (existing) existing.remove();
+    const t = document.createElement('div');
+    t.className = 'toast'; t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 2800);
+  }
+
+  /* ── Start Build (after configurator) ─────────────────────── */
+  async function startBuild() {
+    // Disable both buttons
+    ['optimize-btn','fresh-btn'].forEach(id => {
+      const b = document.getElementById(id);
+      if (b) b.disabled = true;
+    });
+
+    const fieldName = FIELDS.find(f => f.id === cfgState.field)?.name || cfgState.field;
+    const levelName = LEVELS.find(l => l.id === cfgState.level)?.name || cfgState.level;
+
+    setLoaderState(
+      cfgState.mode === 'fresh' ? 'Building Fresh ATS Resume' : 'Optimizing Your Resume',
+      `Tailoring for ${cfgState.role} · ${fieldName}...`,
+      [
+        { id: 'lstep-1', txt: 'Analyzing keywords & experience', cls: 'done' },
+        { id: 'lstep-2', txt: `Tailoring for ${cfgState.role}`,   cls: 'done' },
+        { id: 'lstep-3', txt: 'AI full rewrite in progress (~20s)', cls: 'active' }
+      ]
+    );
+    showScreen('loading');
+
+    try {
+      const res = await fetch('/build-ats-resume', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          resumeText:     currentText,
+          jobDescription: document.getElementById('jd-input').value,
+          analysisResult: currentAnalysis,
+          resumeMode:     cfgState.mode,
+          resumeConfig: {
+            field: cfgState.field,
+            role:  cfgState.role,
+            level: cfgState.level,
+            style: cfgState.style,
+          }
+        })
+      });
+      if (!res.ok) {
+        const t = await res.text();
+        try { throw new Error(JSON.parse(t).error || 'Server error.'); }
+        catch(e) { if (e.message !== 'Server error.') throw e; throw new Error(t || 'Server error.'); }
+      }
+      const data = await res.json();
+      currentATS = data;
+      renderATS(data);
+      showScreen('ats-resume');
+    } catch (err) {
+      document.getElementById('error-msg').textContent = err.message || 'Failed to build ATS resume.';
+      showScreen('error');
+    } finally {
+      ['optimize-btn','fresh-btn'].forEach(id => {
+        const b = document.getElementById(id);
+        if (b) b.disabled = false;
+      });
+    }
+  }
+
+  /* ── Render ATS Resume Screen ──────────────────────────────── */
+  function renderATS(r) {
+    // Score diff
+    const prev  = currentAnalysis?.atsScore || 0;
+    const next  = r.predictedScore || prev;
+    const delta = next - prev;
+    document.getElementById('sd-before').textContent = `Before: ${prev}/100`;
+    document.getElementById('sd-after').textContent  = `After: ${next}/100`;
+    const deltaEl = document.getElementById('sd-delta');
+    if (delta > 0) { deltaEl.textContent = `+${delta} pts`; deltaEl.style.display = ''; }
+    else deltaEl.style.display = 'none';
+
+    // Config chips
+    const fieldName = FIELDS.find(f => f.id === cfgState.field)?.name || '';
+    const levelName = LEVELS.find(l => l.id === cfgState.level)?.name || '';
+    const styleName = STYLES.find(s => s.id === cfgState.style)?.name || '';
+    const modeLabel = cfgState.mode === 'fresh' ? '✨ Fresh Build' : '🔧 Optimized';
+    const chips = [modeLabel, cfgState.role, fieldName, levelName, styleName].filter(Boolean);
+    document.getElementById('cfg-used').innerHTML = chips.map((c, i) =>
+      `<span class="cfg-chip${i === 0 ? ' mode-chip' : ''}">${c}</span>`).join('');
+
+    // Improvements
+    document.getElementById('improvements-list').innerHTML =
+      (r.improvements || []).map(i => `<div class="imp-item"><span class="imp-check">✓</span>${i}</div>`).join('');
+
+    // Injected keywords
+    document.getElementById('injected-tags').innerHTML =
+      (r.injectedKeywords || []).map(k => `<span class="tag-hit">${k}</span>`).join('');
+
+    renderDoc(r);
+  }
+
+  /* ── Render Resume Document ────────────────────────────────── */
+  function renderDoc(r) {
+    const inj = r.injectedKeywords || [];
+    function hl(text) {
+      if (!text) return '';
+      let out = text;
+      inj.forEach(kw => {
+        const rx = new RegExp(`\\b(${kw.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})\\b`, 'gi');
+        out = out.replace(rx, '<span class="kw-hl">$1</span>');
+      });
+      return out;
+    }
+
+    const c = r.contact || {};
+    const contactParts = [c.email, c.phone, c.location, c.linkedin, c.portfolio].filter(Boolean).join(' · ');
+
+    let html = `<div class="rd-name">${r.name || 'Your Name'}</div><div class="rd-contact">${contactParts}</div>`;
+
+    if (r.summary) html += `<div class="rd-sec"><div class="rd-sec-title">Professional Summary</div><p class="rd-summary">${hl(r.summary)}</p></div>`;
+
+    if (r.experience?.length) {
+      html += `<div class="rd-sec"><div class="rd-sec-title">Experience</div>`;
+      r.experience.forEach(e => {
+        html += `<div class="rd-exp"><div class="rd-exp-hd"><div><div class="rd-exp-title">${e.title||''}</div><div class="rd-exp-co">${e.company||''}${e.location?' · '+e.location:''}</div></div><div class="rd-exp-dates">${e.startDate||''} – ${e.endDate||'Present'}</div></div><ul class="rd-bullets">${(e.bullets||[]).map(b=>`<li>${hl(b)}</li>`).join('')}</ul></div>`;
+      });
+      html += `</div>`;
+    }
+
+    if (r.education?.length) {
+      html += `<div class="rd-sec"><div class="rd-sec-title">Education</div>`;
+      r.education.forEach(e => {
+        html += `<div class="rd-edu"><div class="rd-edu-deg">${e.degree||''}</div><div class="rd-edu-sch">${e.school||''}${e.location?' · '+e.location:''}</div><div class="rd-edu-meta">${[e.year,e.gpa?'GPA: '+e.gpa:'',e.honors].filter(Boolean).join(' · ')}</div></div>`;
+      });
+      html += `</div>`;
+    }
+
+    if (r.skills) {
+      const secs = [
+        { label: 'Technical', items: r.skills.technical || [] },
+        { label: 'Tools',     items: r.skills.tools     || [] },
+        { label: 'Soft',      items: r.skills.soft      || [] }
+      ].filter(s => s.items.length);
+      if (secs.length) {
+        html += `<div class="rd-sec"><div class="rd-sec-title">Skills</div><div class="rd-skills-grid">`;
+        secs.forEach(s => {
+          html += `<div class="rd-skills-row"><span class="rd-skills-cat">${s.label}:</span><div class="rd-chips">${s.items.map(sk => {
+            const isInj = inj.some(k => k.toLowerCase() === sk.toLowerCase());
+            return `<span class="rd-chip${isInj?' inj':''}">${sk}</span>`;
+          }).join('')}</div></div>`;
+        });
+        html += `</div></div>`;
+      }
+    }
+
+    if (r.certifications?.length) {
+      html += `<div class="rd-sec"><div class="rd-sec-title">Certifications</div>`;
+      r.certifications.forEach(cert => { html += `<div class="rd-cert">• ${hl(cert)}</div>`; });
+      html += `</div>`;
+    }
+
+    document.getElementById('resume-preview').innerHTML = html;
+  }
+
+  /* ── Highlight Toggle ──────────────────────────────────────── */
+  function toggleHL(on) {
+    document.getElementById('resume-preview').classList.toggle('highlights-off', !on);
+  }
+
+  /* ── Plain Text ────────────────────────────────────────────── */
+  function getPlainText() {
+    if (!currentATS) return '';
+    const r = currentATS; const c = r.contact || {};
+    let t = `${r.name||''}\n`;
+    t += [c.email,c.phone,c.location,c.linkedin,c.portfolio].filter(Boolean).join(' | ') + '\n\n';
+    if (r.summary) t += `PROFESSIONAL SUMMARY\n${r.summary}\n\n`;
+    if (r.experience?.length) {
+      t += `EXPERIENCE\n`;
+      r.experience.forEach(e => {
+        t += `${e.title} | ${e.company}${e.location?' | '+e.location:''}\n${e.startDate} – ${e.endDate||'Present'}\n`;
+        (e.bullets||[]).forEach(b => t += `  • ${b}\n`);
+        t += '\n';
+      });
+    }
+    if (r.education?.length) {
+      t += `EDUCATION\n`;
+      r.education.forEach(e => {
+        t += `${e.degree} | ${e.school}${e.location?' | '+e.location:''}\n`;
+        t += [e.year, e.gpa?'GPA: '+e.gpa:'', e.honors].filter(Boolean).join(' | ') + '\n';
+      });
+      t += '\n';
+    }
+    if (r.skills) {
+      t += `SKILLS\n`;
+      if (r.skills.technical?.length) t += `Technical: ${r.skills.technical.join(', ')}\n`;
+      if (r.skills.tools?.length)     t += `Tools: ${r.skills.tools.join(', ')}\n`;
+      if (r.skills.soft?.length)      t += `Soft Skills: ${r.skills.soft.join(', ')}\n`;
+      t += '\n';
+    }
+    if (r.certifications?.length) {
+      t += `CERTIFICATIONS\n`;
+      r.certifications.forEach(cert => t += `• ${cert}\n`);
+    }
+    return t;
+  }
+
+  /* ── Download TXT ──────────────────────────────────────────── */
+  function dlTXT() {
+    const a = Object.assign(document.createElement('a'), {
+      href: URL.createObjectURL(new Blob([getPlainText()], { type: 'text/plain' })),
+      download: 'ats-resume.txt'
+    });
+    a.click();
+  }
+
+  /* ── Download HTML ─────────────────────────────────────────── */
+  function dlHTML() {
+    const body = document.getElementById('resume-preview').innerHTML;
+    const name = currentATS?.name || 'Resume';
+    const css = `*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}body{font-family:'Inter',sans-serif;background:#f5f5fa;padding:40px 20px;-webkit-font-smoothing:antialiased}.page{max-width:760px;margin:0 auto;background:#fff;padding:52px 56px;border-radius:4px;box-shadow:0 4px 24px rgba(0,0,0,.08)}.rd-name{font-size:26px;font-weight:800;letter-spacing:-.03em;color:#0f0f1a;margin-bottom:5px}.rd-contact{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:#5a5a6e;margin-bottom:22px}.rd-sec{margin-bottom:20px}.rd-sec-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#6366f1;border-bottom:1.5px solid #e8e8f0;padding-bottom:5px;margin-bottom:12px}.rd-summary{font-size:13px;color:#374151;line-height:1.75}.rd-exp{margin-bottom:14px}.rd-exp-hd{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px}.rd-exp-title{font-size:14px;font-weight:700;color:#0f0f1a}.rd-exp-co{font-size:12px;color:#374151;font-weight:500}.rd-exp-dates{font-size:11px;color:#9ca3af;text-align:right;white-space:nowrap}.rd-bullets{list-style:none;padding:0}.rd-bullets li{font-size:12.5px;color:#374151;line-height:1.65;padding:2px 0 2px 14px;position:relative}.rd-bullets li::before{content:'•';position:absolute;left:0;color:#6366f1}.rd-edu{margin-bottom:10px}.rd-edu-deg{font-size:13px;font-weight:700;color:#0f0f1a}.rd-edu-sch{font-size:12px;color:#374151;font-weight:500}.rd-edu-meta{font-size:11px;color:#9ca3af}.rd-skills-grid{display:flex;flex-direction:column;gap:7px}.rd-skills-row{display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap}.rd-skills-cat{font-size:11px;font-weight:700;color:#374151;min-width:74px;flex-shrink:0;padding-top:3px}.rd-chips{display:flex;flex-wrap:wrap;gap:4px}.rd-chip{font-size:11px;padding:2px 8px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:4px;color:#374151}.rd-chip.inj{background:#ede9fe;border-color:#c4b5fd;color:#5b21b6}.rd-cert{font-size:12.5px;color:#374151;line-height:1.7;padding:2px 0}.kw-hl{background:rgba(99,102,241,.1)}`;
+    const fullHTML = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><title>${name} — ATS Resume</title><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/><style>${css}</style></head><body><div class="page">${body}</div></body></html>`;
+    const a = Object.assign(document.createElement('a'), {
+      href: URL.createObjectURL(new Blob([fullHTML], { type: 'text/html' })),
+      download: 'ats-resume.html'
+    });
+    a.click();
+  }
+
+  /* ── Copy Text ─────────────────────────────────────────────── */
+  async function copyText(btn) {
+    try {
+      await navigator.clipboard.writeText(getPlainText());
+      const orig = btn.textContent;
+      btn.textContent = '✓ Copied!';
+      setTimeout(() => btn.textContent = orig, 2000);
+    } catch { btn.textContent = 'Copy failed'; }
+  }
+</script>
 </body>
 </html>
