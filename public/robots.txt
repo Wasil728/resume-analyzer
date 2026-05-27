@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://resumeai.onrender.com/sitemap.xml
+Sitemap: https://resumeflux-ai.onrender.com/sitemap.xml
