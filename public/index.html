@@ -467,6 +467,16 @@
     .cfg-next-btn:hover { background: var(--accent-2); }
     .cfg-next-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
+    /* Edit mode */
+    .edit-btn { padding: 9px 16px; background: var(--accent-dim); border: 1px solid rgba(99,102,241,0.35); border-radius: var(--r-sm); cursor: pointer; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; color: var(--accent); transition: all 0.2s; white-space: nowrap; }
+    .edit-btn:hover, .edit-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .resume-doc.editing { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: var(--r-md); caret-color: var(--accent); }
+    .resume-doc.editing * { cursor: text; }
+    .edit-bar { position: sticky; bottom: 20px; z-index: 50; display: flex; align-items: center; justify-content: space-between; background: var(--accent); border-radius: var(--r-md); padding: 12px 18px; margin-top: 14px; box-shadow: 0 8px 24px var(--accent-glow); }
+    .edit-bar-msg { font-size: 13px; font-weight: 500; color: #fff; }
+    .edit-done-btn { padding: 8px 18px; background: #fff; border: none; border-radius: var(--r-sm); cursor: pointer; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 700; color: var(--accent); transition: all 0.2s; }
+    .edit-done-btn:hover { background: #f0f0ff; }
+
     /* Toast */
     .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%); background: #1f1f28; border: 1px solid var(--border-2); color: var(--text-1); padding: 10px 20px; border-radius: var(--r-md); font-size: 14px; font-weight: 500; z-index: 500; animation: fadeUp 0.3s ease; pointer-events: none; white-space: nowrap; }
 
@@ -662,11 +672,17 @@
         </div>
       </div>
       <div class="ats-hd-btns">
+        <button class="edit-btn" id="edit-toggle-btn" onclick="toggleEditMode()">✏️ Edit Resume</button>
         <button class="outline-btn" onclick="showScreen('result')">← Back to Analysis</button>
       </div>
     </div>
     <div class="ats-layout">
-      <div class="resume-doc" id="resume-preview"></div>
+      <div class="resume-doc" id="resume-preview" spellcheck="true"></div>
+      <!-- Edit mode bar -->
+      <div id="edit-bar" class="edit-bar hidden">
+        <span class="edit-bar-msg">✏️ Editing mode — click any text to change it</span>
+        <button class="edit-done-btn" onclick="toggleEditMode()">✓ Done Editing</button>
+      </div>
       <div class="ats-sidebar">
         <div class="sb-card">
           <div class="sb-title">Display Options</div>
@@ -1176,6 +1192,21 @@
     }
     if(r.certifications?.length){html+=`<div class="rd-sec"><div class="rd-sec-title">Certifications</div>`;r.certifications.forEach(cert=>{html+=`<div class="rd-cert">• ${hl(cert)}</div>`;});html+=`</div>`;}
     document.getElementById('resume-preview').innerHTML=html;
+  }
+
+  // Edit Mode
+  let isEditing = false;
+  function toggleEditMode(){
+    const prev = document.getElementById('resume-preview');
+    const btn  = document.getElementById('edit-toggle-btn');
+    const bar  = document.getElementById('edit-bar');
+    isEditing = !isEditing;
+    prev.contentEditable = isEditing ? 'true' : 'false';
+    prev.classList.toggle('editing', isEditing);
+    btn.classList.toggle('active', isEditing);
+    bar.classList.toggle('hidden', !isEditing);
+    if(isEditing){ prev.focus(); showToast('Edit mode on — click any text to change it'); }
+    else { showToast('Changes saved — downloads will reflect your edits'); }
   }
 
   function toggleHL(on){document.getElementById('resume-preview').classList.toggle('highlights-off',!on);}
