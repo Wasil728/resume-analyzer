@@ -9,6 +9,14 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    // Initialize PDF.js worker when library loads
+    window.addEventListener('load',()=>{
+      if(typeof pdfjsLib!=='undefined'){
+        pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      }
+    });
+  </script>
   <style>
     /* ── RESET & TOKENS ─────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -744,11 +752,14 @@
 </div>
 
 <!-- ══ SCRIPT ════════════════════════════════════════════════════ -->
+<!-- ══ SCRIPT ════════════════════════════════════════════════════ -->
 <script>
+  // Wait for PDF.js to load before using it
+  let pdfjsReady=false;
+  window.addEventListener('load',()=>pdfjsReady=true);
+  
   // Performance marks
   performance.mark('app-start');
-
-  pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
   let selectedFile=null,currentAnalysis=null,currentText=null,currentATS=null;
 
@@ -764,11 +775,16 @@
   dz.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();fin.click();}});
   dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag-over');});
   dz.addEventListener('dragleave',()=>dz.classList.remove('drag-over'));
-  dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag-over');setFile(e.dataTransfer.files[0]);});
-  fin.addEventListener('change',e=>setFile(e.target.files[0]));
+  dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag-over');if(e.dataTransfer.files[0])setFile(e.dataTransfer.files[0]);});
+  fin.addEventListener('change',e=>{if(e.target.files[0])setFile(e.target.files[0]);});
 
   function setFile(f){
-    if(!f||f.type!=='application/pdf')return;
+    if(!f)return;
+    const maxSize=4*1024*1024;
+    const validTypes=['application/pdf','application/x-pdf'];
+    const isPDF=f.name.toLowerCase().endsWith('.pdf')||validTypes.includes(f.type);
+    if(!isPDF){toast('Please upload a PDF file');return;}
+    if(f.size>maxSize){toast('File size exceeds 4MB limit');return;}
     selectedFile=f;
     dz.classList.add('has-file');
     document.getElementById('drop-icon').textContent='✓';
@@ -781,7 +797,8 @@
   document.getElementById('analyze-btn').addEventListener('click',analyze);
 
   async function analyze(){
-    if(!selectedFile)return;
+    if(!selectedFile){toast('Please select a PDF file first');return;}
+    if(!pdfjsReady){toast('PDF library still loading. Please wait...');return;}
     performance.mark('analyze-start');
     setLoaderState('Analyzing your resume','Extracting text from PDF...',[
       {id:'lstep-1',txt:'Extracting PDF content',cls:'active'},
@@ -805,7 +822,9 @@
       performance.measure('analysis','analyze-start','analyze-end');
       showScreen('result');
     }catch(err){
-      document.getElementById('error-msg').textContent=err.message||'Something went wrong.';
+      console.error('Analysis error:',err);
+      const msg=err.message||'Something went wrong.';
+      document.getElementById('error-msg').textContent=msg;
       showScreen('error');
     }
   }
@@ -825,29 +844,60 @@
 
   // PDF Extraction - Chunked to avoid blocking
   async function extractPDF(file){
-    const buf=await file.arrayBuffer();
-    const pdf=await pdfjsLib.getDocument({data:buf}).promise;
-    let txt='';
-    for(let i=1;i<=pdf.numPages;i++){
-      const page=await pdf.getPage(i);
-      const content=await page.getTextContent();
-      txt+=content.items.map(it=>it.str).join(' ')+'\n';
-      if(i%5===0)await sleep(0); // Yield to main thread every 5 pages
+    try{
+      const buf=await file.arrayBuffer();
+      let pdf;
+      try{
+        pdf=await pdfjsLib.getDocument({data:buf}).promise;
+      }catch(e){
+        if(e.message.includes('PDF')||e.name==='InvalidPDFException'){
+          throw new Error('Invalid PDF file. Ensure it\'s a valid, text-based (not scanned) PDF.');
+        }
+        throw e;
+      }
+      if(pdf.numPages===0)throw new Error('PDF has no pages. Check if the file is corrupted.');
+      let txt='';
+      for(let i=1;i<=pdf.numPages;i++){
+        const page=await pdf.getPage(i);
+        const content=await page.getTextContent();
+        if(content.items.length===0&&i===1)console.warn('Warning: Page 1 appears to be an image. Consider using OCR or a text-based PDF.');
+        txt+=content.items.map(it=>it.str).join(' ')+'\n';
+        if(i%5===0)await sleep(0);
+      }
+      if(!txt.trim())throw new Error('No text could be extracted from PDF. This may be a scanned PDF. Please use a text-based PDF.');
+      return txt;
+    }catch(e){
+      if(e.message)throw e;
+      throw new Error('Failed to process PDF: '+e.toString());
     }
-    return txt;
   }
 
   // API: Analyze
   async function callAnalyze(resumeText){
-    const res=await fetch('/analyze',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({resumeText,jobDescription:document.getElementById('jd-input').value})
-    });
-    if(!res.ok){
-      const t=await res.text();
-      try{throw new Error(JSON.parse(t).error||'Server error.');}catch(e){if(e.message!=='Server error.')throw e;throw new Error(t||'Server error.');}
+    try{
+      const res=await fetch('/analyze',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({resumeText,jobDescription:document.getElementById('jd-input').value})
+      });
+      if(!res.ok){
+        const t=await res.text();
+        try{
+          const error=JSON.parse(t).error||'Server error';
+          throw new Error(error);
+        }catch(e){
+          if(e instanceof SyntaxError){
+            throw new Error('Server error: '+t.substring(0,100));
+          }
+          throw e;
+        }
+      }
+      return res.json();
+    }catch(e){
+      if(e instanceof TypeError&&e.message.includes('fetch')){
+        throw new Error('Network error. Check your connection and try again.');
+      }
+      throw e;
     }
-    return res.json();
   }
 
   // Score Color
@@ -1035,18 +1085,40 @@
     ]);
     showScreen('loading');
     try{
+      if(!currentText){
+        throw new Error('Resume text not found. Please start from the upload page.');
+      }
+      if(!currentAnalysis){
+        throw new Error('Analysis data not found. Please analyze your resume first.');
+      }
       performance.mark('build-start');
       const res=await fetch('/build-ats-resume',{
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({resumeText:currentText,jobDescription:document.getElementById('jd-input').value,analysisResult:currentAnalysis,resumeMode:cfgState.mode,resumeConfig:{field:cfgState.field,role:cfgState.role,level:cfgState.level,style:cfgState.style}})
       });
-      if(!res.ok){const t=await res.text();try{throw new Error(JSON.parse(t).error||'Server error.');}catch(e){if(e.message!=='Server error.')throw e;throw new Error(t||'Server error.');}}
-      const data=await res.json();currentATS=data;
+      if(!res.ok){
+        const t=await res.text();
+        try{
+          const error=JSON.parse(t).error||'Server error';
+          throw new Error(error);
+        }catch(e){
+          if(e instanceof SyntaxError){
+            throw new Error('Build failed: '+t.substring(0,100));
+          }
+          throw e;
+        }
+      }
+      const data=await res.json();
+      currentATS=data;
       performance.mark('build-end');
       performance.measure('resume-build','build-start','build-end');
       renderATS(data);
       showScreen('ats-resume');
-    }catch(err){document.getElementById('error-msg').textContent=err.message||'Failed to build ATS resume.';showScreen('error');}
+    }catch(err){
+      console.error('Build error:',err);
+      document.getElementById('error-msg').textContent=err.message||'Failed to build ATS resume.';
+      showScreen('error');
+    }
     finally{['optimize-btn','fresh-btn'].forEach(id=>{const b=document.getElementById(id);if(b)b.disabled=false;});}
   }
 
