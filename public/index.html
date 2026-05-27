@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <style>
     /* ── RESET & TOKENS ─────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -29,8 +29,8 @@
       --error:      #ef4444;
       --err-dim:    rgba(239,68,68,0.1);
       --text-1:     #f4f4f6;
-      --text-2:     #9191a4;
-      --text-3:     #55555f;
+      --text-2:     #a8a8bc;
+      --text-3:     #7a7a8c;
       --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 20px;
     }
     html { scroll-behavior: smooth; }
@@ -487,6 +487,7 @@
   </style>
 </head>
 <body>
+<main id="main-content">
 
 <!-- NAV -->
 <nav class="nav">
@@ -503,15 +504,15 @@
       <p class="hero-sub">Upload your resume, get an ATS score, identify keyword gaps, and generate a professionally optimized version tailored to your profession — powered by advanced AI.</p>
     </div>
     <div class="upload-card">
-      <div id="drop-zone" class="drop-zone">
-        <div class="drop-icon-box" id="drop-icon">📄</div>
+      <div id="drop-zone" class="drop-zone" role="button" tabindex="0" aria-label="Drop zone to upload PDF resume, or click to browse files">
+        <div class="drop-icon-box" id="drop-icon" aria-hidden="true">📄</div>
         <div class="drop-title" id="drop-title">Drop your resume here</div>
-        <div class="drop-sub"   id="drop-sub">or click to browse · PDF only</div>
+        <div class="drop-sub" id="drop-sub">or click to browse · PDF only</div>
       </div>
-      <input type="file" id="file-input" accept=".pdf" style="display:none"/>
+      <input type="file" id="file-input" accept=".pdf" style="display:none" aria-label="Resume file input"/>
       <div class="jd-header">Job Description<span class="jd-tag">Optional</span></div>
       <textarea id="jd-input" rows="5" placeholder="Paste the job description here to unlock match scoring, targeted keyword analysis, and role-specific optimization..."></textarea>
-      <button id="analyze-btn">Analyze Resume →</button>
+      <button id="analyze-btn" aria-label="Analyze resume for ATS compatibility">Analyze Resume →</button>
     </div>
     <div class="features">
       <div class="feat"><div class="feat-icon">🎯</div><div class="feat-name">ATS Score</div><div class="feat-desc">Instant compatibility score against ATS systems used by top employers</div></div>
@@ -523,10 +524,10 @@
 </div>
 
 <!-- ══ LOADING SCREEN ═══════════════════════════════════════════ -->
-<div id="loading-screen" class="screen">
-  <div class="loader-ring"></div>
+<div id="loading-screen" class="screen" aria-live="polite" aria-label="Loading status">
+  <div class="loader-ring" aria-hidden="true"></div>
   <div class="loader-title" id="loader-title">Analyzing your resume</div>
-  <div id="loader-msg">Extracting text from PDF...</div>
+  <div id="loader-msg" role="status">Extracting text from PDF...</div>
   <div class="loader-steps">
     <div class="lst active" id="lstep-1"><div class="lst-dot"></div><span id="lstep-1-txt">Extracting PDF content</span></div>
     <div class="lst"        id="lstep-2"><div class="lst-dot"></div><span id="lstep-2-txt">Running ATS analysis</span></div>
@@ -535,11 +536,11 @@
 </div>
 
 <!-- ══ ERROR SCREEN ═════════════════════════════════════════════ -->
-<div id="error-screen" class="screen">
-  <div class="err-icon">⚠️</div>
+<div id="error-screen" class="screen" role="alert" aria-live="assertive">
+  <div class="err-icon" aria-hidden="true">⚠️</div>
   <div class="err-title">Something Went Wrong</div>
   <div id="error-msg"></div>
-  <button class="retry-btn" onclick="showScreen('upload')">← Try Again</button>
+  <button class="retry-btn" onclick="showScreen('upload')" aria-label="Retry analysis">← Try Again</button>
 </div>
 
 <!-- ══ RESULT SCREEN ════════════════════════════════════════════ -->
@@ -559,7 +560,7 @@
     <div class="score-area">
       <div class="score-card">
         <div class="ring-wrap">
-          <svg width="126" height="126">
+          <svg width="126" height="126" aria-label="ATS Score Circle" role="img">
             <circle cx="63" cy="63" r="50" fill="none" stroke="#1f1f28" stroke-width="8"/>
             <circle id="score-ring" cx="63" cy="63" r="50" fill="none"
               stroke="#6366f1" stroke-width="8"
@@ -674,9 +675,10 @@
   </div>
   <div class="footer" style="margin-top:48px">Powered by <a href="https://groq.com" target="_blank">Groq</a> · llama-3.3-70b-versatile · ResumeAI</div>
 </div>
+</main>
 
 <!-- ══ CONFIGURATOR MODAL ═══════════════════════════════════════ -->
-<div id="cfg-overlay" class="cfg-overlay" onclick="handleOverlayClick(event)" role="dialog" aria-modal="true">
+<div id="cfg-overlay" class="cfg-overlay" onclick="handleOverlayClick(event)" role="dialog" aria-modal="true" aria-labelledby="cfg-title">
   <div class="cfg-modal">
     <button class="cfg-close" onclick="closeCfg()" aria-label="Close">✕</button>
 
@@ -743,611 +745,412 @@
 
 <!-- ══ SCRIPT ════════════════════════════════════════════════════ -->
 <script>
-  pdfjsLib.GlobalWorkerOptions.workerSrc =
-    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  // Performance marks
+  performance.mark('app-start');
 
-  let selectedFile    = null;
-  let currentAnalysis = null;
-  let currentText     = null;
-  let currentATS      = null;
+  pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-  /* ── Screen Manager ────────────────────────────────────────── */
-  function showScreen(name) {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.getElementById(name + '-screen').classList.add('active');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  let selectedFile=null,currentAnalysis=null,currentText=null,currentATS=null;
+
+  // Screen Manager
+  function showScreen(name){
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    document.getElementById(name+'-screen').classList.add('active');
+    window.scrollTo({top:0,behavior:'smooth'});
   }
 
-  /* ── File Handling ─────────────────────────────────────────── */
-  const dz  = document.getElementById('drop-zone');
-  const fin = document.getElementById('file-input');
-  dz.addEventListener('click',     () => fin.click());
-  dz.addEventListener('dragover',  e  => { e.preventDefault(); dz.classList.add('drag-over'); });
-  dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
-  dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); setFile(e.dataTransfer.files[0]); });
-  fin.addEventListener('change', e => setFile(e.target.files[0]));
+  // File Handling
+  const dz=document.getElementById('drop-zone'),fin=document.getElementById('file-input');
+  dz.addEventListener('click',()=>fin.click());
+  dz.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' ')fin.click();});
+  dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag-over');});
+  dz.addEventListener('dragleave',()=>dz.classList.remove('drag-over'));
+  dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag-over');setFile(e.dataTransfer.files[0]);});
+  fin.addEventListener('change',e=>setFile(e.target.files[0]));
 
-  function setFile(f) {
-    if (!f || f.type !== 'application/pdf') return;
-    selectedFile = f;
+  function setFile(f){
+    if(!f||f.type!=='application/pdf')return;
+    selectedFile=f;
     dz.classList.add('has-file');
-    document.getElementById('drop-icon').textContent  = '✓';
-    document.getElementById('drop-title').textContent = f.name;
-    document.getElementById('drop-sub').textContent   = (f.size / 1024).toFixed(1) + ' KB · Click to change';
-    document.getElementById('analyze-btn').style.display = 'block';
+    document.getElementById('drop-icon').textContent='✓';
+    document.getElementById('drop-title').textContent=f.name;
+    document.getElementById('drop-sub').textContent=(f.size/1024).toFixed(1)+' KB · Click to change';
+    document.getElementById('analyze-btn').style.display='block';
   }
 
-  /* ── Analyze ───────────────────────────────────────────────── */
-  document.getElementById('analyze-btn').addEventListener('click', analyze);
+  // Analyze
+  document.getElementById('analyze-btn').addEventListener('click',analyze);
 
-  async function analyze() {
-    if (!selectedFile) return;
-    setLoaderState('Analyzing your resume', 'Extracting text from PDF...', [
-      { id: 'lstep-1', txt: 'Extracting PDF content',      cls: 'active' },
-      { id: 'lstep-2', txt: 'Running ATS analysis',        cls: '' },
-      { id: 'lstep-3', txt: 'Generating score & report',   cls: '' }
+  async function analyze(){
+    if(!selectedFile)return;
+    performance.mark('analyze-start');
+    setLoaderState('Analyzing your resume','Extracting text from PDF...',[
+      {id:'lstep-1',txt:'Extracting PDF content',cls:'active'},
+      {id:'lstep-2',txt:'Running ATS analysis',cls:''},
+      {id:'lstep-3',txt:'Generating score & report',cls:''}
     ]);
     showScreen('loading');
-    try {
-      const text = await extractPDF(selectedFile);
-      if (!text.trim()) throw new Error('Could not extract text. Please use a text-based (not scanned) PDF.');
-      currentText = text;
-      advanceStep('lstep-1', 'lstep-2', 'Sending to AI for deep analysis...');
-      const data = await callAnalyze(text);
-      currentAnalysis = data;
-      advanceStep('lstep-2', 'lstep-3', 'Finalizing your report...');
+    try{
+      const text=await extractPDF(selectedFile);
+      if(!text.trim())throw new Error('Could not extract text. Please use a text-based (not scanned) PDF.');
+      currentText=text;
+      performance.mark('extract-end');
+      performance.measure('pdf-extraction','analyze-start','extract-end');
+      advanceStep('lstep-1','lstep-2','Sending to AI for deep analysis...');
+      const data=await callAnalyze(text);
+      currentAnalysis=data;
+      advanceStep('lstep-2','lstep-3','Finalizing your report...');
       await sleep(500);
       renderResult(data);
+      performance.mark('analyze-end');
+      performance.measure('analysis','analyze-start','analyze-end');
       showScreen('result');
-    } catch (err) {
-      document.getElementById('error-msg').textContent = err.message || 'Something went wrong.';
+    }catch(err){
+      document.getElementById('error-msg').textContent=err.message||'Something went wrong.';
       showScreen('error');
     }
   }
 
-  /* ── Loader Helpers ────────────────────────────────────────── */
-  function setLoaderState(title, msg, steps) {
-    document.getElementById('loader-title').textContent = title;
-    document.getElementById('loader-msg').textContent   = msg;
-    steps.forEach(s => {
-      const el = document.getElementById(s.id);
-      if (el) { el.className = 'lst ' + s.cls; el.querySelector('span').textContent = s.txt; }
-    });
+  // Loader Helpers
+  function setLoaderState(title,msg,steps){
+    document.getElementById('loader-title').textContent=title;
+    document.getElementById('loader-msg').textContent=msg;
+    steps.forEach(s=>{const el=document.getElementById(s.id);if(el){el.className='lst '+s.cls;el.querySelector('span').textContent=s.txt;}});
   }
-  function advanceStep(doneId, activeId, msg) {
-    const d = document.getElementById(doneId);
-    const a = document.getElementById(activeId);
-    if (d) d.className = 'lst done';
-    if (a) a.className = 'lst active';
-    document.getElementById('loader-msg').textContent = msg;
+  function advanceStep(doneId,activeId,msg){
+    const d=document.getElementById(doneId),a=document.getElementById(activeId);
+    if(d)d.className='lst done';if(a)a.className='lst active';
+    document.getElementById('loader-msg').textContent=msg;
   }
-  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
-  /* ── PDF Extraction ────────────────────────────────────────── */
-  async function extractPDF(file) {
-    const buf = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
-    let txt = '';
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page    = await pdf.getPage(i);
-      const content = await page.getTextContent();
-      txt += content.items.map(it => it.str).join(' ') + '\n';
+  // PDF Extraction - Chunked to avoid blocking
+  async function extractPDF(file){
+    const buf=await file.arrayBuffer();
+    const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+    let txt='';
+    for(let i=1;i<=pdf.numPages;i++){
+      const page=await pdf.getPage(i);
+      const content=await page.getTextContent();
+      txt+=content.items.map(it=>it.str).join(' ')+'\n';
+      if(i%5===0)await sleep(0); // Yield to main thread every 5 pages
     }
     return txt;
   }
 
-  /* ── API: Analyze ──────────────────────────────────────────── */
-  async function callAnalyze(resumeText) {
-    const res = await fetch('/analyze', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ resumeText, jobDescription: document.getElementById('jd-input').value })
+  // API: Analyze
+  async function callAnalyze(resumeText){
+    const res=await fetch('/analyze',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({resumeText,jobDescription:document.getElementById('jd-input').value})
     });
-    if (!res.ok) {
-      const t = await res.text();
-      try { throw new Error(JSON.parse(t).error || 'Server error.'); }
-      catch(e) { if (e.message !== 'Server error.') throw e; throw new Error(t || 'Server error.'); }
+    if(!res.ok){
+      const t=await res.text();
+      try{throw new Error(JSON.parse(t).error||'Server error.');}catch(e){if(e.message!=='Server error.')throw e;throw new Error(t||'Server error.');}
     }
     return res.json();
   }
 
-  /* ── Score Color ───────────────────────────────────────────── */
-  function sc(s) { return s >= 80 ? '#22c55e' : s >= 60 ? '#f59e0b' : '#ef4444'; }
+  // Score Color
+  function sc(s){return s>=80?'#22c55e':s>=60?'#f59e0b':'#ef4444';}
 
-  /* ── Render Results ────────────────────────────────────────── */
-  function renderResult(r) {
-    const circ   = 2 * Math.PI * 50;
-    const offset = circ - (r.atsScore / 100) * circ;
-    const color  = sc(r.atsScore);
-    const ring   = document.getElementById('score-ring');
-    ring.setAttribute('stroke', color);
-    setTimeout(() => ring.setAttribute('stroke-dashoffset', offset), 100);
-    animNum(document.getElementById('score-num'), 0, r.atsScore, 1200, color);
-    const gradeEl = document.getElementById('score-grade');
-    gradeEl.textContent = r.grade || '—'; gradeEl.style.color = color;
-    document.getElementById('summary-text').textContent = r.summary || '';
-    document.getElementById('result-file').textContent  = selectedFile ? selectedFile.name : 'Analysis complete';
+  // Render Results
+  function renderResult(r){
+    const circ=2*Math.PI*50,offset=circ-(r.atsScore/100)*circ,color=sc(r.atsScore);
+    const ring=document.getElementById('score-ring');
+    ring.setAttribute('stroke',color);
+    setTimeout(()=>ring.setAttribute('stroke-dashoffset',offset),100);
+    animNum(document.getElementById('score-num'),0,r.atsScore,1200,color);
+    const gradeEl=document.getElementById('score-grade');
+    gradeEl.textContent=r.grade||'—';gradeEl.style.color=color;
+    document.getElementById('summary-text').textContent=r.summary||'';
+    document.getElementById('result-file').textContent=selectedFile?selectedFile.name:'Analysis complete';
 
-    const badgesEl = document.getElementById('badges');
-    badgesEl.innerHTML = '';
-    if (r.industryFit)     badgesEl.innerHTML += `<span class="badge badge-a">🏢 ${r.industryFit}</span>`;
-    if (r.experienceLevel) badgesEl.innerHTML += `<span class="badge badge-a">🎯 ${r.experienceLevel}</span>`;
-    if (r.matchScore)      badgesEl.innerHTML += `<span class="badge badge-s">✓ JD Match: ${r.matchScore}%</span>`;
+    const badgesEl=document.getElementById('badges');badgesEl.innerHTML='';
+    if(r.industryFit)badgesEl.innerHTML+=`<span class="badge badge-a">🏢 ${r.industryFit}</span>`;
+    if(r.experienceLevel)badgesEl.innerHTML+=`<span class="badge badge-a">🎯 ${r.experienceLevel}</span>`;
+    if(r.matchScore)badgesEl.innerHTML+=`<span class="badge badge-s">✓ JD Match: ${r.matchScore}%</span>`;
 
-    const mv = document.getElementById('match-val');
-    mv.textContent = r.matchScore ? r.matchScore + '%' : 'N/A';
-    mv.style.color = r.matchScore ? sc(r.matchScore) : 'var(--text-3)';
-    document.getElementById('miss-cnt').textContent = (r.missingKeywords || []).length;
-    document.getElementById('hit-cnt').textContent  = (r.matchedKeywords  || []).length;
+    const mv=document.getElementById('match-val');
+    mv.textContent=r.matchScore?r.matchScore+'%':'N/A';
+    mv.style.color=r.matchScore?sc(r.matchScore):'var(--text-3)';
+    document.getElementById('miss-cnt').textContent=(r.missingKeywords||[]).length;
+    document.getElementById('hit-cnt').textContent=(r.matchedKeywords||[]).length;
 
-    const rfBox  = document.getElementById('red-flags-box');
-    const flags  = (r.redFlags || []).filter(f => f && f.trim());
-    rfBox.style.display = flags.length ? 'block' : 'none';
-    document.getElementById('red-flags-list').innerHTML = flags.map(f => `<div class="rf-item">• ${f}</div>`).join('');
+    const rfBox=document.getElementById('red-flags-box'),flags=(r.redFlags||[]).filter(f=>f&&f.trim());
+    rfBox.style.display=flags.length?'block':'none';
+    document.getElementById('red-flags-list').innerHTML=flags.map(f=>`<div class="rf-item">• ${f}</div>`).join('');
 
-    const barsEl = document.getElementById('section-bars');
-    barsEl.innerHTML = '';
-    for (const [k, v] of Object.entries(r.sectionScores || {})) {
-      const c = sc(v);
-      barsEl.innerHTML += `<div class="bar-row"><div class="bar-top"><span class="bar-key">${k}</span><span class="bar-pct" style="color:${c}">${v}%</span></div><div class="bar-bg"><div class="bar-fill" data-v="${v}" style="background:${c}"></div></div></div>`;
+    const barsEl=document.getElementById('section-bars');barsEl.innerHTML='';
+    for(const[k,v]of Object.entries(r.sectionScores||{})){
+      const c=sc(v);
+      barsEl.innerHTML+=`<div class="bar-row"><div class="bar-top"><span class="bar-key">${k}</span><span class="bar-pct" style="color:${c}">${v}%</span></div><div class="bar-bg"><div class="bar-fill" data-v="${v}" style="background:${c}"></div></div></div>`;
     }
-    setTimeout(() => { document.querySelectorAll('.bar-fill').forEach(el => el.style.width = el.dataset.v + '%'); }, 120);
+    setTimeout(()=>{document.querySelectorAll('.bar-fill').forEach(el=>el.style.width=el.dataset.v+'%');},120);
 
-    document.getElementById('missing-tags').innerHTML = (r.missingKeywords || []).map(k => `<span class="tag-miss">${k}</span>`).join('');
-    document.getElementById('matched-tags').innerHTML = (r.matchedKeywords  || []).map(k => `<span class="tag-hit">${k}</span>`).join('');
-    document.getElementById('strengths-list').innerHTML  = (r.strengths  || []).map(s => `<li>${s}</li>`).join('');
-    document.getElementById('weaknesses-list').innerHTML = (r.weaknesses || []).map(w => `<li>${w}</li>`).join('');
-    document.getElementById('suggestions-list').innerHTML = (r.suggestions || []).map(s => `<li>${s}</li>`).join('');
-    document.getElementById('qw-grid').innerHTML = (r.quickWins || []).map((w,i) =>
-      `<div class="qw-item"><span class="qw-num">0${i+1}</span><span class="qw-txt">${w}</span></div>`).join('');
+    document.getElementById('missing-tags').innerHTML=(r.missingKeywords||[]).map(k=>`<span class="tag-miss">${k}</span>`).join('');
+    document.getElementById('matched-tags').innerHTML=(r.matchedKeywords||[]).map(k=>`<span class="tag-hit">${k}</span>`).join('');
+    document.getElementById('strengths-list').innerHTML=(r.strengths||[]).map(s=>`<li>${s}</li>`).join('');
+    document.getElementById('weaknesses-list').innerHTML=(r.weaknesses||[]).map(w=>`<li>${w}</li>`).join('');
+    document.getElementById('suggestions-list').innerHTML=(r.suggestions||[]).map(s=>`<li>${s}</li>`).join('');
+    document.getElementById('qw-grid').innerHTML=(r.quickWins||[]).map((w,i)=>`<div class="qw-item"><span class="qw-num">0${i+1}</span><span class="qw-txt">${w}</span></div>`).join('');
   }
 
-  function animNum(el, from, to, dur, color) {
-    el.style.color = color;
-    const t0 = performance.now();
-    (function step(now) {
-      const p = Math.min((now - t0) / dur, 1);
-      el.textContent = Math.round(from + (to - from) * (1 - Math.pow(1 - p, 3)));
-      if (p < 1) requestAnimationFrame(step);
-    })(performance.now());
+  function animNum(el,from,to,dur,color){
+    el.style.color=color;
+    const t0=performance.now();
+    (function step(now){const p=Math.min((now-t0)/dur,1);el.textContent=Math.round(from+(to-from)*(1-Math.pow(1-p,3)));if(p<1)requestAnimationFrame(step);})(performance.now());
   }
 
-  /* ═══════════════════════════════════════════════════════════
-     CONFIGURATOR DATA
-  ═══════════════════════════════════════════════════════════ */
-  const FIELDS = [
-    { id: 'technology',  icon: '💻', name: 'Technology' },
-    { id: 'business',    icon: '📊', name: 'Business & Finance' },
-    { id: 'engineering', icon: '⚙️', name: 'Engineering' },
-    { id: 'healthcare',  icon: '🏥', name: 'Healthcare' },
-    { id: 'creative',    icon: '🎨', name: 'Creative & Media' },
-    { id: 'education',   icon: '📚', name: 'Education & Research' },
-    { id: 'legal',       icon: '⚖️', name: 'Legal & HR' },
-    { id: 'operations',  icon: '🚛', name: 'Operations & Supply Chain' },
-  ];
+  // Configurator Data
+  const FIELDS=[{id:'technology',icon:'💻',name:'Technology'},{id:'business',icon:'📊',name:'Business & Finance'},{id:'engineering',icon:'⚙️',name:'Engineering'},{id:'healthcare',icon:'🏥',name:'Healthcare'},{id:'creative',icon:'🎨',name:'Creative & Media'},{id:'education',icon:'📚',name:'Education & Research'},{id:'legal',icon:'⚖️',name:'Legal & HR'},{id:'operations',icon:'🚛',name:'Operations & Supply Chain'}];
+  const ROLES={technology:['Software Engineer','Frontend Developer','Backend Developer','Full Stack Developer','Data Scientist','Machine Learning Engineer','Data Analyst','DevOps / Cloud Engineer','Cybersecurity Analyst','Mobile Developer (iOS/Android)','Product Manager','QA / Test Engineer','Systems Architect','Database Administrator','AI/ML Researcher','Site Reliability Engineer'],business:['Financial Analyst','Investment Banker','Accountant / CPA','Business Analyst','Marketing Manager','Digital Marketing Specialist','Sales Manager','Account Executive','MBA Graduate (General)','Operations Manager','Strategy Consultant','Brand Manager','E-commerce Manager','Risk Analyst','Management Consultant','Business Development Manager'],engineering:['Civil Engineer','Structural Engineer','Mechanical Engineer','Electrical Engineer','Chemical Engineer','Environmental Engineer','Aerospace Engineer','Biomedical Engineer','Industrial Engineer','Project Engineer','Construction Manager','Quality Assurance Engineer','Process Engineer','Manufacturing Engineer','Geotechnical Engineer'],healthcare:['Physician / Doctor','Registered Nurse','Nurse Practitioner','Pharmacist','Healthcare Administrator','Physical Therapist','Occupational Therapist','Clinical Research Coordinator','Medical Technologist','Public Health Specialist','Healthcare Data Analyst','Radiologist','Dentist','Medical Laboratory Scientist','Hospital Administrator'],creative:['UX/UI Designer','Graphic Designer','Content Writer / Editor','Digital Marketing / SEO Specialist','Social Media Manager','Art Director','Copywriter / Creative Writer','Video Editor / Producer','Brand Strategist','Creative Director','Photographer / Videographer','Motion Graphics Designer','Web Designer'],education:['Teacher (K-12)','University Professor / Lecturer','Academic Researcher','Instructional Designer','School Counselor / Advisor','Education Administrator','Curriculum Developer','Corporate Trainer / L&D','E-Learning Developer','Special Education Teacher','Dean / Academic Director'],legal:['Attorney / Lawyer','Paralegal','Legal Analyst','Compliance Officer','HR Manager','HR Business Partner','Talent Acquisition / Recruiter','Contract Manager','Corporate Counsel','Immigration Specialist','Labor Relations Specialist','Legal Secretary / Assistant'],operations:['Supply Chain Manager','Logistics Coordinator','Operations Analyst','Warehouse Manager','Project Manager (PMP)','Business Operations Manager','Fleet Manager','Inventory Analyst','Distribution Manager','Procurement Manager','Facilities Manager','Manufacturing Operations Manager']};
+  const LEVELS=[{id:'entry',icon:'🌱',name:'Entry Level',yrs:'0–2 years'},{id:'mid',icon:'📈',name:'Mid Level',yrs:'3–7 years'},{id:'senior',icon:'⭐',name:'Senior Level',yrs:'8–15 years'},{id:'executive',icon:'👑',name:'Executive',yrs:'15+ years'}];
+  const STYLES=[{id:'professional',icon:'🏛️',name:'Professional',desc:'Formal & traditional — Finance, Law, Government'},{id:'modern',icon:'⚡',name:'Modern',desc:'Bold & dynamic — Tech, Startups, Creative'},{id:'executive',icon:'💼',name:'Executive',desc:'Strategic & visionary — C-Suite, VP, Director'}];
+  const CFG_META={1:{title:'How would you like to proceed?',sub:'Choose your resume building mode'},2:{title:'Professional Field & Target Role',sub:'Help the AI tailor your resume precisely'},3:{title:'Experience Level & Resume Style',sub:'Personalize the tone and presentation'}};
 
-  const ROLES = {
-    technology:  ['Software Engineer','Frontend Developer','Backend Developer','Full Stack Developer','Data Scientist','Machine Learning Engineer','Data Analyst','DevOps / Cloud Engineer','Cybersecurity Analyst','Mobile Developer (iOS/Android)','Product Manager','QA / Test Engineer','Systems Architect','Database Administrator','AI/ML Researcher','Site Reliability Engineer'],
-    business:    ['Financial Analyst','Investment Banker','Accountant / CPA','Business Analyst','Marketing Manager','Digital Marketing Specialist','Sales Manager','Account Executive','MBA Graduate (General)','Operations Manager','Strategy Consultant','Brand Manager','E-commerce Manager','Risk Analyst','Management Consultant','Business Development Manager'],
-    engineering: ['Civil Engineer','Structural Engineer','Mechanical Engineer','Electrical Engineer','Chemical Engineer','Environmental Engineer','Aerospace Engineer','Biomedical Engineer','Industrial Engineer','Project Engineer','Construction Manager','Quality Assurance Engineer','Process Engineer','Manufacturing Engineer','Geotechnical Engineer'],
-    healthcare:  ['Physician / Doctor','Registered Nurse','Nurse Practitioner','Pharmacist','Healthcare Administrator','Physical Therapist','Occupational Therapist','Clinical Research Coordinator','Medical Technologist','Public Health Specialist','Healthcare Data Analyst','Radiologist','Dentist','Medical Laboratory Scientist','Hospital Administrator'],
-    creative:    ['UX/UI Designer','Graphic Designer','Content Writer / Editor','Digital Marketing / SEO Specialist','Social Media Manager','Art Director','Copywriter / Creative Writer','Video Editor / Producer','Brand Strategist','Creative Director','Photographer / Videographer','Motion Graphics Designer','Web Designer'],
-    education:   ['Teacher (K-12)','University Professor / Lecturer','Academic Researcher','Instructional Designer','School Counselor / Advisor','Education Administrator','Curriculum Developer','Corporate Trainer / L&D','E-Learning Developer','Special Education Teacher','Dean / Academic Director'],
-    legal:       ['Attorney / Lawyer','Paralegal','Legal Analyst','Compliance Officer','HR Manager','HR Business Partner','Talent Acquisition / Recruiter','Contract Manager','Corporate Counsel','Immigration Specialist','Labor Relations Specialist','Legal Secretary / Assistant'],
-    operations:  ['Supply Chain Manager','Logistics Coordinator','Operations Analyst','Warehouse Manager','Project Manager (PMP)','Business Operations Manager','Fleet Manager','Inventory Analyst','Distribution Manager','Procurement Manager','Facilities Manager','Manufacturing Operations Manager'],
-  };
+  // Configurator State
+  const cfgState={step:1,mode:null,field:null,role:'',level:null,style:null};
 
-  const LEVELS = [
-    { id: 'entry',     icon: '🌱', name: 'Entry Level',  yrs: '0–2 years' },
-    { id: 'mid',       icon: '📈', name: 'Mid Level',     yrs: '3–7 years' },
-    { id: 'senior',    icon: '⭐', name: 'Senior Level',  yrs: '8–15 years' },
-    { id: 'executive', icon: '👑', name: 'Executive',     yrs: '15+ years' },
-  ];
-
-  const STYLES = [
-    { id: 'professional', icon: '🏛️', name: 'Professional', desc: 'Formal & traditional — Finance, Law, Government' },
-    { id: 'modern',       icon: '⚡', name: 'Modern',       desc: 'Bold & dynamic — Tech, Startups, Creative' },
-    { id: 'executive',    icon: '💼', name: 'Executive',    desc: 'Strategic & visionary — C-Suite, VP, Director' },
-  ];
-
-  const CFG_META = {
-    1: { title: 'How would you like to proceed?',   sub: 'Choose your resume building mode' },
-    2: { title: 'Professional Field & Target Role', sub: 'Help the AI tailor your resume precisely' },
-    3: { title: 'Experience Level & Resume Style',  sub: 'Personalize the tone and presentation' },
-  };
-
-  /* ── Configurator State ────────────────────────────────────── */
-  const cfgState = { step: 1, mode: null, field: null, role: '', level: null, style: null };
-
-  function openCfg(preMode) {
-    cfgState.mode  = preMode;
-    cfgState.field = null;
-    cfgState.role  = '';
-    cfgState.level = null;
-    cfgState.style = null;
-    renderFieldGrid();
-    renderLevelGrid();
-    renderStyleGrid();
-    cfgSetStep(preMode ? 2 : 1);
-    // Pre-highlight the mode card
-    document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
-    const mc = document.getElementById('mc-' + preMode);
-    if (mc) mc.classList.add('selected');
+  function openCfg(preMode){
+    cfgState.mode=preMode;cfgState.field=null;cfgState.role='';cfgState.level=null;cfgState.style=null;
+    renderFieldGrid();renderLevelGrid();renderStyleGrid();
+    cfgSetStep(preMode?2:1);
+    document.querySelectorAll('.mode-card').forEach(c=>c.classList.remove('selected'));
+    const mc=document.getElementById('mc-'+preMode);if(mc)mc.classList.add('selected');
     document.getElementById('cfg-overlay').classList.add('open');
-    document.body.style.overflow = 'hidden';
+    document.body.style.overflow='hidden';
   }
 
-  function closeCfg() {
+  function closeCfg(){
     document.getElementById('cfg-overlay').classList.remove('open');
-    document.body.style.overflow = '';
+    document.body.style.overflow='';
   }
 
-  function handleOverlayClick(e) {
-    if (e.target === document.getElementById('cfg-overlay')) closeCfg();
-  }
+  function handleOverlayClick(e){if(e.target===document.getElementById('cfg-overlay'))closeCfg();}
 
-  function cfgSetStep(n) {
-    cfgState.step = n;
-    // Show/hide steps
-    [1,2,3].forEach(i => document.getElementById('cfg-step-' + i).classList.toggle('hidden', i !== n));
-    // Update header
-    document.getElementById('cfg-title').textContent = CFG_META[n].title;
-    document.getElementById('cfg-sub').textContent   = CFG_META[n].sub;
-    // Step label
-    document.getElementById('cfg-step-lbl').textContent = `Step ${n} of 3`;
-    // Back button
-    document.getElementById('cfg-back').style.visibility = n === 1 ? 'hidden' : 'visible';
-    // Next button label
-    document.getElementById('cfg-next').textContent = n === 3 ? 'Build My Resume →' : 'Continue →';
-    // Render progress
+  function cfgSetStep(n){
+    cfgState.step=n;
+    [1,2,3].forEach(i=>document.getElementById('cfg-step-'+i).classList.toggle('hidden',i!==n));
+    document.getElementById('cfg-title').textContent=CFG_META[n].title;
+    document.getElementById('cfg-sub').textContent=CFG_META[n].sub;
+    document.getElementById('cfg-step-lbl').textContent=`Step ${n} of 3`;
+    document.getElementById('cfg-back').style.visibility=n===1?'hidden':'visible';
+    document.getElementById('cfg-next').textContent=n===3?'Build My Resume →':'Continue →';
     renderCfgProgress(n);
-    // Role area visibility on step 2
-    if (n === 2) {
-      const roleArea = document.getElementById('role-area');
-      roleArea.style.display = cfgState.field ? 'block' : 'none';
+    if(n===2){const roleArea=document.getElementById('role-area');roleArea.style.display=cfgState.field?'block':'none';}
+  }
+
+  function renderCfgProgress(cur){
+    const prog=document.getElementById('cfg-prog');let html='';
+    for(let i=1;i<=3;i++){
+      const cls=i<cur?'done':i===cur?'active':'';
+      html+=`<div class="prg-num ${cls}">${i<cur?'✓':i}</div>`;
+      if(i<3)html+=`<div class="prg-line ${i<cur?'done':''}"></div>`;
     }
+    prog.innerHTML=html;
   }
 
-  function renderCfgProgress(cur) {
-    const prog = document.getElementById('cfg-prog');
-    let html = '';
-    for (let i = 1; i <= 3; i++) {
-      const cls = i < cur ? 'done' : i === cur ? 'active' : '';
-      html += `<div class="prg-num ${cls}">${i < cur ? '✓' : i}</div>`;
-      if (i < 3) html += `<div class="prg-line ${i < cur ? 'done' : ''}"></div>`;
-    }
-    prog.innerHTML = html;
+  function cfgSelectMode(mode){
+    cfgState.mode=mode;
+    document.querySelectorAll('.mode-card').forEach(c=>c.classList.remove('selected'));
+    document.getElementById('mc-'+mode).classList.add('selected');
   }
 
-  function cfgSelectMode(mode) {
-    cfgState.mode = mode;
-    document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
-    document.getElementById('mc-' + mode).classList.add('selected');
+  function renderFieldGrid(){
+    document.getElementById('field-grid').innerHTML=FIELDS.map(f=>`<div class="field-card${cfgState.field===f.id?' selected':''}" id="fc-${f.id}" onclick="cfgSelectField('${f.id}')"><div class="fc-icon">${f.icon}</div><div class="fc-name">${f.name}</div></div>`).join('');
   }
 
-  function renderFieldGrid() {
-    document.getElementById('field-grid').innerHTML = FIELDS.map(f =>
-      `<div class="field-card${cfgState.field === f.id ? ' selected' : ''}" id="fc-${f.id}" onclick="cfgSelectField('${f.id}')">
-        <div class="fc-icon">${f.icon}</div><div class="fc-name">${f.name}</div>
-      </div>`).join('');
+  function cfgSelectField(fieldId){
+    cfgState.field=fieldId;cfgState.role='';
+    document.querySelectorAll('.field-card').forEach(c=>c.classList.remove('selected'));
+    document.getElementById('fc-'+fieldId).classList.add('selected');
+    const roleArea=document.getElementById('role-area');roleArea.style.display='block';
+    const sel=document.getElementById('role-select');
+    const roles=ROLES[fieldId]||[];
+    sel.innerHTML='<option value="">Select your role...</option>'+roles.map(r=>`<option value="${r}">${r}</option>`).join('')+'<option value="__custom__">Other — type your role below...</option>';
+    sel.value='';document.getElementById('role-custom').classList.add('hidden');document.getElementById('role-custom').value='';
   }
 
-  function cfgSelectField(fieldId) {
-    cfgState.field = fieldId;
-    cfgState.role  = '';
-    document.querySelectorAll('.field-card').forEach(c => c.classList.remove('selected'));
-    document.getElementById('fc-' + fieldId).classList.add('selected');
-    const roleArea = document.getElementById('role-area');
-    roleArea.style.display = 'block';
-    const sel = document.getElementById('role-select');
-    const roles = ROLES[fieldId] || [];
-    sel.innerHTML = '<option value="">Select your role...</option>' +
-      roles.map(r => `<option value="${r}">${r}</option>`).join('') +
-      '<option value="__custom__">Other — type your role below...</option>';
-    sel.value = '';
-    document.getElementById('role-custom').classList.add('hidden');
-    document.getElementById('role-custom').value = '';
+  function cfgRoleChange(sel){
+    const custom=document.getElementById('role-custom');
+    if(sel.value==='__custom__'){custom.classList.remove('hidden');cfgState.role='';}
+    else{custom.classList.add('hidden');cfgState.role=sel.value;}
   }
 
-  function cfgRoleChange(sel) {
-    const custom = document.getElementById('role-custom');
-    if (sel.value === '__custom__') {
-      custom.classList.remove('hidden'); cfgState.role = '';
-    } else {
-      custom.classList.add('hidden'); cfgState.role = sel.value;
-    }
+  function renderLevelGrid(){
+    document.getElementById('level-grid').innerHTML=LEVELS.map(l=>`<div class="level-card${cfgState.level===l.id?' selected':''}" id="lc-${l.id}" onclick="cfgSelectLevel('${l.id}')"><div class="lc-icon">${l.icon}</div><div class="lc-name">${l.name}</div><div class="lc-yrs">${l.yrs}</div></div>`).join('');
   }
 
-  function renderLevelGrid() {
-    document.getElementById('level-grid').innerHTML = LEVELS.map(l =>
-      `<div class="level-card${cfgState.level === l.id ? ' selected' : ''}" id="lc-${l.id}" onclick="cfgSelectLevel('${l.id}')">
-        <div class="lc-icon">${l.icon}</div><div class="lc-name">${l.name}</div><div class="lc-yrs">${l.yrs}</div>
-      </div>`).join('');
+  function cfgSelectLevel(id){
+    cfgState.level=id;
+    document.querySelectorAll('.level-card').forEach(c=>c.classList.remove('selected'));
+    document.getElementById('lc-'+id).classList.add('selected');
   }
 
-  function cfgSelectLevel(id) {
-    cfgState.level = id;
-    document.querySelectorAll('.level-card').forEach(c => c.classList.remove('selected'));
-    document.getElementById('lc-' + id).classList.add('selected');
+  function renderStyleGrid(){
+    document.getElementById('style-grid').innerHTML=STYLES.map(s=>`<div class="style-card${cfgState.style===s.id?' selected':''}" id="sc-${s.id}" onclick="cfgSelectStyle('${s.id}')"><div class="sc-icon">${s.icon}</div><div class="sc-name">${s.name}</div><div class="sc-desc">${s.desc}</div></div>`).join('');
   }
 
-  function renderStyleGrid() {
-    document.getElementById('style-grid').innerHTML = STYLES.map(s =>
-      `<div class="style-card${cfgState.style === s.id ? ' selected' : ''}" id="sc-${s.id}" onclick="cfgSelectStyle('${s.id}')">
-        <div class="sc-icon">${s.icon}</div><div class="sc-name">${s.name}</div><div class="sc-desc">${s.desc}</div>
-      </div>`).join('');
+  function cfgSelectStyle(id){
+    cfgState.style=id;
+    document.querySelectorAll('.style-card').forEach(c=>c.classList.remove('selected'));
+    document.getElementById('sc-'+id).classList.add('selected');
   }
 
-  function cfgSelectStyle(id) {
-    cfgState.style = id;
-    document.querySelectorAll('.style-card').forEach(c => c.classList.remove('selected'));
-    document.getElementById('sc-' + id).classList.add('selected');
-  }
-
-  function cfgNext() {
-    const { step, mode, field, level, style } = cfgState;
-    if (step === 1) {
-      if (!mode) { toast('Please choose a mode to continue'); return; }
-      cfgSetStep(2);
-    } else if (step === 2) {
-      if (!field) { toast('Please select your professional field'); return; }
-      // Resolve role from either select or custom input
-      const sel    = document.getElementById('role-select');
-      const custom = document.getElementById('role-custom').value.trim();
-      if (sel.value === '__custom__') {
-        cfgState.role = custom || 'Professional';
-      } else if (sel.value) {
-        cfgState.role = sel.value;
-      } else {
-        cfgState.role = custom || FIELDS.find(f => f.id === field)?.name + ' Professional' || 'Professional';
-      }
+  function cfgNext(){
+    const{step,mode,field,level,style}=cfgState;
+    if(step===1){if(!mode){toast('Please choose a mode to continue');return;}cfgSetStep(2);}
+    else if(step===2){
+      if(!field){toast('Please select your professional field');return;}
+      const sel=document.getElementById('role-select'),custom=document.getElementById('role-custom').value.trim();
+      if(sel.value==='__custom__'){cfgState.role=custom||'Professional';}
+      else if(sel.value){cfgState.role=sel.value;}
+      else{cfgState.role=custom||FIELDS.find(f=>f.id===field)?.name+' Professional'||'Professional';}
       cfgSetStep(3);
-    } else if (step === 3) {
-      if (!level) { toast('Please select your experience level'); return; }
-      if (!style) { toast('Please choose a resume style'); return; }
-      closeCfg();
-      startBuild();
+    }else if(step===3){
+      if(!level){toast('Please select your experience level');return;}
+      if(!style){toast('Please choose a resume style');return;}
+      closeCfg();startBuild();
     }
   }
 
-  function cfgPrev() {
-    if (cfgState.step > 1) cfgSetStep(cfgState.step - 1);
-  }
+  function cfgPrev(){if(cfgState.step>1)cfgSetStep(cfgState.step-1);}
 
-  function toast(msg) {
-    const existing = document.querySelector('.toast');
-    if (existing) existing.remove();
-    const t = document.createElement('div');
-    t.className = 'toast'; t.textContent = msg;
+  function toast(msg){
+    const existing=document.querySelector('.toast');if(existing)existing.remove();
+    const t=document.createElement('div');t.className='toast';t.textContent=msg;t.setAttribute('role','alert');
     document.body.appendChild(t);
-    setTimeout(() => t.remove(), 2800);
+    setTimeout(()=>t.remove(),2800);
   }
 
-  /* ── Start Build (after configurator) ─────────────────────── */
-  async function startBuild() {
-    // Disable both buttons
-    ['optimize-btn','fresh-btn'].forEach(id => {
-      const b = document.getElementById(id);
-      if (b) b.disabled = true;
-    });
-
-    const fieldName = FIELDS.find(f => f.id === cfgState.field)?.name || cfgState.field;
-    const levelName = LEVELS.find(l => l.id === cfgState.level)?.name || cfgState.level;
-
-    setLoaderState(
-      cfgState.mode === 'fresh' ? 'Building Fresh ATS Resume' : 'Optimizing Your Resume',
-      `Tailoring for ${cfgState.role} · ${fieldName}...`,
-      [
-        { id: 'lstep-1', txt: 'Analyzing keywords & experience', cls: 'done' },
-        { id: 'lstep-2', txt: `Tailoring for ${cfgState.role}`,   cls: 'done' },
-        { id: 'lstep-3', txt: 'AI full rewrite in progress (~20s)', cls: 'active' }
-      ]
-    );
+  // Start Build
+  async function startBuild(){
+    ['optimize-btn','fresh-btn'].forEach(id=>{const b=document.getElementById(id);if(b)b.disabled=true;});
+    const fieldName=FIELDS.find(f=>f.id===cfgState.field)?.name||cfgState.field;
+    const levelName=LEVELS.find(l=>l.id===cfgState.level)?.name||cfgState.level;
+    setLoaderState(cfgState.mode==='fresh'?'Building Fresh ATS Resume':'Optimizing Your Resume',`Tailoring for ${cfgState.role} · ${fieldName}...`,[
+      {id:'lstep-1',txt:'Analyzing keywords & experience',cls:'done'},
+      {id:'lstep-2',txt:`Tailoring for ${cfgState.role}`,cls:'done'},
+      {id:'lstep-3',txt:'AI full rewrite in progress (~20s)',cls:'active'}
+    ]);
     showScreen('loading');
-
-    try {
-      const res = await fetch('/build-ats-resume', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          resumeText:     currentText,
-          jobDescription: document.getElementById('jd-input').value,
-          analysisResult: currentAnalysis,
-          resumeMode:     cfgState.mode,
-          resumeConfig: {
-            field: cfgState.field,
-            role:  cfgState.role,
-            level: cfgState.level,
-            style: cfgState.style,
-          }
-        })
+    try{
+      performance.mark('build-start');
+      const res=await fetch('/build-ats-resume',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({resumeText:currentText,jobDescription:document.getElementById('jd-input').value,analysisResult:currentAnalysis,resumeMode:cfgState.mode,resumeConfig:{field:cfgState.field,role:cfgState.role,level:cfgState.level,style:cfgState.style}})
       });
-      if (!res.ok) {
-        const t = await res.text();
-        try { throw new Error(JSON.parse(t).error || 'Server error.'); }
-        catch(e) { if (e.message !== 'Server error.') throw e; throw new Error(t || 'Server error.'); }
-      }
-      const data = await res.json();
-      currentATS = data;
+      if(!res.ok){const t=await res.text();try{throw new Error(JSON.parse(t).error||'Server error.');}catch(e){if(e.message!=='Server error.')throw e;throw new Error(t||'Server error.');}}
+      const data=await res.json();currentATS=data;
+      performance.mark('build-end');
+      performance.measure('resume-build','build-start','build-end');
       renderATS(data);
       showScreen('ats-resume');
-    } catch (err) {
-      document.getElementById('error-msg').textContent = err.message || 'Failed to build ATS resume.';
-      showScreen('error');
-    } finally {
-      ['optimize-btn','fresh-btn'].forEach(id => {
-        const b = document.getElementById(id);
-        if (b) b.disabled = false;
-      });
-    }
+    }catch(err){document.getElementById('error-msg').textContent=err.message||'Failed to build ATS resume.';showScreen('error');}
+    finally{['optimize-btn','fresh-btn'].forEach(id=>{const b=document.getElementById(id);if(b)b.disabled=false;});}
   }
 
-  /* ── Render ATS Resume Screen ──────────────────────────────── */
-  function renderATS(r) {
-    // Score diff
-    const prev  = currentAnalysis?.atsScore || 0;
-    const next  = r.predictedScore || prev;
-    const delta = next - prev;
-    document.getElementById('sd-before').textContent = `Before: ${prev}/100`;
-    document.getElementById('sd-after').textContent  = `After: ${next}/100`;
-    const deltaEl = document.getElementById('sd-delta');
-    if (delta > 0) { deltaEl.textContent = `+${delta} pts`; deltaEl.style.display = ''; }
-    else deltaEl.style.display = 'none';
-
-    // Config chips
-    const fieldName = FIELDS.find(f => f.id === cfgState.field)?.name || '';
-    const levelName = LEVELS.find(l => l.id === cfgState.level)?.name || '';
-    const styleName = STYLES.find(s => s.id === cfgState.style)?.name || '';
-    const modeLabel = cfgState.mode === 'fresh' ? '✨ Fresh Build' : '🔧 Optimized';
-    const chips = [modeLabel, cfgState.role, fieldName, levelName, styleName].filter(Boolean);
-    document.getElementById('cfg-used').innerHTML = chips.map((c, i) =>
-      `<span class="cfg-chip${i === 0 ? ' mode-chip' : ''}">${c}</span>`).join('');
-
-    // Improvements
-    document.getElementById('improvements-list').innerHTML =
-      (r.improvements || []).map(i => `<div class="imp-item"><span class="imp-check">✓</span>${i}</div>`).join('');
-
-    // Injected keywords
-    document.getElementById('injected-tags').innerHTML =
-      (r.injectedKeywords || []).map(k => `<span class="tag-hit">${k}</span>`).join('');
-
+  // Render ATS
+  function renderATS(r){
+    const prev=currentAnalysis?.atsScore||0,next=r.predictedScore||prev,delta=next-prev;
+    document.getElementById('sd-before').textContent=`Before: ${prev}/100`;
+    document.getElementById('sd-after').textContent=`After: ${next}/100`;
+    const deltaEl=document.getElementById('sd-delta');
+    if(delta>0){deltaEl.textContent=`+${delta} pts`;deltaEl.style.display='';}
+    else deltaEl.style.display='none';
+    const fieldName=FIELDS.find(f=>f.id===cfgState.field)?.name||'',levelName=LEVELS.find(l=>l.id===cfgState.level)?.name||'',styleName=STYLES.find(s=>s.id===cfgState.style)?.name||'',modeLabel=cfgState.mode==='fresh'?'✨ Fresh Build':'🔧 Optimized';
+    const chips=[modeLabel,cfgState.role,fieldName,levelName,styleName].filter(Boolean);
+    document.getElementById('cfg-used').innerHTML=chips.map((c,i)=>`<span class="cfg-chip${i===0?' mode-chip':''}">${c}</span>`).join('');
+    document.getElementById('improvements-list').innerHTML=(r.improvements||[]).map(i=>`<div class="imp-item"><span class="imp-check">✓</span>${i}</div>`).join('');
+    document.getElementById('injected-tags').innerHTML=(r.injectedKeywords||[]).map(k=>`<span class="tag-hit">${k}</span>`).join('');
     renderDoc(r);
   }
 
-  /* ── Render Resume Document ────────────────────────────────── */
-  function renderDoc(r) {
-    const inj = r.injectedKeywords || [];
-    function hl(text) {
-      if (!text) return '';
-      let out = text;
-      inj.forEach(kw => {
-        const rx = new RegExp(`\\b(${kw.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})\\b`, 'gi');
-        out = out.replace(rx, '<span class="kw-hl">$1</span>');
-      });
+  // Render Document
+  function renderDoc(r){
+    const inj=r.injectedKeywords||[];
+    function hl(text){
+      if(!text)return'';let out=text;
+      inj.forEach(kw=>{const rx=new RegExp(`\\b(${kw.replace(/[.*+?^${}()|[\\]\\\\]/g,'\\$&')})\\b`,'gi');out=out.replace(rx,'<span class="kw-hl">$1</span>');});
       return out;
     }
-
-    const c = r.contact || {};
-    const contactParts = [c.email, c.phone, c.location, c.linkedin, c.portfolio].filter(Boolean).join(' · ');
-
-    let html = `<div class="rd-name">${r.name || 'Your Name'}</div><div class="rd-contact">${contactParts}</div>`;
-
-    if (r.summary) html += `<div class="rd-sec"><div class="rd-sec-title">Professional Summary</div><p class="rd-summary">${hl(r.summary)}</p></div>`;
-
-    if (r.experience?.length) {
-      html += `<div class="rd-sec"><div class="rd-sec-title">Experience</div>`;
-      r.experience.forEach(e => {
-        html += `<div class="rd-exp"><div class="rd-exp-hd"><div><div class="rd-exp-title">${e.title||''}</div><div class="rd-exp-co">${e.company||''}${e.location?' · '+e.location:''}</div></div><div class="rd-exp-dates">${e.startDate||''} – ${e.endDate||'Present'}</div></div><ul class="rd-bullets">${(e.bullets||[]).map(b=>`<li>${hl(b)}</li>`).join('')}</ul></div>`;
-      });
-      html += `</div>`;
+    const c=r.contact||{},contactParts=[c.email,c.phone,c.location,c.linkedin,c.portfolio].filter(Boolean).join(' · ');
+    let html=`<div class="rd-name">${r.name||'Your Name'}</div><div class="rd-contact">${contactParts}</div>`;
+    if(r.summary)html+=`<div class="rd-sec"><div class="rd-sec-title">Professional Summary</div><p class="rd-summary">${hl(r.summary)}</p></div>`;
+    if(r.experience?.length){
+      html+=`<div class="rd-sec"><div class="rd-sec-title">Experience</div>`;
+      r.experience.forEach(e=>{html+=`<div class="rd-exp"><div class="rd-exp-hd"><div><div class="rd-exp-title">${e.title||''}</div><div class="rd-exp-co">${e.company||''}${e.location?' · '+e.location:''}</div></div><div class="rd-exp-dates">${e.startDate||''} – ${e.endDate||'Present'}</div></div><ul class="rd-bullets">${(e.bullets||[]).map(b=>`<li>${hl(b)}</li>`).join('')}</ul></div>`;});
+      html+=`</div>`;
     }
-
-    if (r.education?.length) {
-      html += `<div class="rd-sec"><div class="rd-sec-title">Education</div>`;
-      r.education.forEach(e => {
-        html += `<div class="rd-edu"><div class="rd-edu-deg">${e.degree||''}</div><div class="rd-edu-sch">${e.school||''}${e.location?' · '+e.location:''}</div><div class="rd-edu-meta">${[e.year,e.gpa?'GPA: '+e.gpa:'',e.honors].filter(Boolean).join(' · ')}</div></div>`;
-      });
-      html += `</div>`;
+    if(r.education?.length){
+      html+=`<div class="rd-sec"><div class="rd-sec-title">Education</div>`;
+      r.education.forEach(e=>{html+=`<div class="rd-edu"><div class="rd-edu-deg">${e.degree||''}</div><div class="rd-edu-sch">${e.school||''}${e.location?' · '+e.location:''}</div><div class="rd-edu-meta">${[e.year,e.gpa?'GPA: '+e.gpa:'',e.honors].filter(Boolean).join(' · ')}</div></div>`;});
+      html+=`</div>`;
     }
-
-    if (r.skills) {
-      const secs = [
-        { label: 'Technical', items: r.skills.technical || [] },
-        { label: 'Tools',     items: r.skills.tools     || [] },
-        { label: 'Soft',      items: r.skills.soft      || [] }
-      ].filter(s => s.items.length);
-      if (secs.length) {
-        html += `<div class="rd-sec"><div class="rd-sec-title">Skills</div><div class="rd-skills-grid">`;
-        secs.forEach(s => {
-          html += `<div class="rd-skills-row"><span class="rd-skills-cat">${s.label}:</span><div class="rd-chips">${s.items.map(sk => {
-            const isInj = inj.some(k => k.toLowerCase() === sk.toLowerCase());
-            return `<span class="rd-chip${isInj?' inj':''}">${sk}</span>`;
-          }).join('')}</div></div>`;
-        });
-        html += `</div></div>`;
+    if(r.skills){
+      const secs=[{label:'Technical',items:r.skills.technical||[]},{label:'Tools',items:r.skills.tools||[]},{label:'Soft',items:r.skills.soft||[]}].filter(s=>s.items.length);
+      if(secs.length){
+        html+=`<div class="rd-sec"><div class="rd-sec-title">Skills</div><div class="rd-skills-grid">`;
+        secs.forEach(s=>{html+=`<div class="rd-skills-row"><span class="rd-skills-cat">${s.label}:</span><div class="rd-chips">${s.items.map(sk=>{const isInj=inj.some(k=>k.toLowerCase()===sk.toLowerCase());return `<span class="rd-chip${isInj?' inj':''}">${sk}</span>`;}).join('')}</div></div>`;});
+        html+=`</div></div>`;
       }
     }
-
-    if (r.certifications?.length) {
-      html += `<div class="rd-sec"><div class="rd-sec-title">Certifications</div>`;
-      r.certifications.forEach(cert => { html += `<div class="rd-cert">• ${hl(cert)}</div>`; });
-      html += `</div>`;
-    }
-
-    document.getElementById('resume-preview').innerHTML = html;
+    if(r.certifications?.length){html+=`<div class="rd-sec"><div class="rd-sec-title">Certifications</div>`;r.certifications.forEach(cert=>{html+=`<div class="rd-cert">• ${hl(cert)}</div>`;});html+=`</div>`;}
+    document.getElementById('resume-preview').innerHTML=html;
   }
 
-  /* ── Highlight Toggle ──────────────────────────────────────── */
-  function toggleHL(on) {
-    document.getElementById('resume-preview').classList.toggle('highlights-off', !on);
-  }
+  function toggleHL(on){document.getElementById('resume-preview').classList.toggle('highlights-off',!on);}
 
-  /* ── Plain Text ────────────────────────────────────────────── */
-  function getPlainText() {
-    if (!currentATS) return '';
-    const r = currentATS; const c = r.contact || {};
-    let t = `${r.name||''}\n`;
-    t += [c.email,c.phone,c.location,c.linkedin,c.portfolio].filter(Boolean).join(' | ') + '\n\n';
-    if (r.summary) t += `PROFESSIONAL SUMMARY\n${r.summary}\n\n`;
-    if (r.experience?.length) {
-      t += `EXPERIENCE\n`;
-      r.experience.forEach(e => {
-        t += `${e.title} | ${e.company}${e.location?' | '+e.location:''}\n${e.startDate} – ${e.endDate||'Present'}\n`;
-        (e.bullets||[]).forEach(b => t += `  • ${b}\n`);
-        t += '\n';
-      });
+  function getPlainText(){
+    if(!currentATS)return'';
+    const r=currentATS,c=r.contact||{};
+    let t=`${r.name||''}\n${[c.email,c.phone,c.location,c.linkedin,c.portfolio].filter(Boolean).join(' | ')}\n\n`;
+    if(r.summary)t+=`PROFESSIONAL SUMMARY\n${r.summary}\n\n`;
+    if(r.experience?.length){
+      t+=`EXPERIENCE\n`;
+      r.experience.forEach(e=>{t+=`${e.title} | ${e.company}${e.location?' | '+e.location:''}\n${e.startDate} – ${e.endDate||'Present'}\n`;(e.bullets||[]).forEach(b=>t+=`  • ${b}\n`);t+='\n';});
     }
-    if (r.education?.length) {
-      t += `EDUCATION\n`;
-      r.education.forEach(e => {
-        t += `${e.degree} | ${e.school}${e.location?' | '+e.location:''}\n`;
-        t += [e.year, e.gpa?'GPA: '+e.gpa:'', e.honors].filter(Boolean).join(' | ') + '\n';
-      });
-      t += '\n';
+    if(r.education?.length){
+      t+=`EDUCATION\n`;
+      r.education.forEach(e=>{t+=`${e.degree} | ${e.school}${e.location?' | '+e.location:''}\n${[e.year,e.gpa?'GPA: '+e.gpa:'',e.honors].filter(Boolean).join(' | ')}\n`;});
+      t+='\n';
     }
-    if (r.skills) {
-      t += `SKILLS\n`;
-      if (r.skills.technical?.length) t += `Technical: ${r.skills.technical.join(', ')}\n`;
-      if (r.skills.tools?.length)     t += `Tools: ${r.skills.tools.join(', ')}\n`;
-      if (r.skills.soft?.length)      t += `Soft Skills: ${r.skills.soft.join(', ')}\n`;
-      t += '\n';
+    if(r.skills){
+      t+=`SKILLS\n`;
+      if(r.skills.technical?.length)t+=`Technical: ${r.skills.technical.join(', ')}\n`;
+      if(r.skills.tools?.length)t+=`Tools: ${r.skills.tools.join(', ')}\n`;
+      if(r.skills.soft?.length)t+=`Soft Skills: ${r.skills.soft.join(', ')}\n`;
+      t+='\n';
     }
-    if (r.certifications?.length) {
-      t += `CERTIFICATIONS\n`;
-      r.certifications.forEach(cert => t += `• ${cert}\n`);
-    }
+    if(r.certifications?.length){t+=`CERTIFICATIONS\n`;r.certifications.forEach(cert=>t+=`• ${cert}\n`);}
     return t;
   }
 
-  /* ── Download TXT ──────────────────────────────────────────── */
-  function dlTXT() {
-    const a = Object.assign(document.createElement('a'), {
-      href: URL.createObjectURL(new Blob([getPlainText()], { type: 'text/plain' })),
-      download: 'ats-resume.txt'
-    });
+  function dlTXT(){
+    const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([getPlainText()],{type:'text/plain'})),download:'ats-resume.txt'});
     a.click();
   }
 
-  /* ── Download HTML ─────────────────────────────────────────── */
-  function dlHTML() {
-    const body = document.getElementById('resume-preview').innerHTML;
-    const name = currentATS?.name || 'Resume';
-    const css = `*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}body{font-family:'Inter',sans-serif;background:#f5f5fa;padding:40px 20px;-webkit-font-smoothing:antialiased}.page{max-width:760px;margin:0 auto;background:#fff;padding:52px 56px;border-radius:4px;box-shadow:0 4px 24px rgba(0,0,0,.08)}.rd-name{font-size:26px;font-weight:800;letter-spacing:-.03em;color:#0f0f1a;margin-bottom:5px}.rd-contact{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:#5a5a6e;margin-bottom:22px}.rd-sec{margin-bottom:20px}.rd-sec-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#6366f1;border-bottom:1.5px solid #e8e8f0;padding-bottom:5px;margin-bottom:12px}.rd-summary{font-size:13px;color:#374151;line-height:1.75}.rd-exp{margin-bottom:14px}.rd-exp-hd{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px}.rd-exp-title{font-size:14px;font-weight:700;color:#0f0f1a}.rd-exp-co{font-size:12px;color:#374151;font-weight:500}.rd-exp-dates{font-size:11px;color:#9ca3af;text-align:right;white-space:nowrap}.rd-bullets{list-style:none;padding:0}.rd-bullets li{font-size:12.5px;color:#374151;line-height:1.65;padding:2px 0 2px 14px;position:relative}.rd-bullets li::before{content:'•';position:absolute;left:0;color:#6366f1}.rd-edu{margin-bottom:10px}.rd-edu-deg{font-size:13px;font-weight:700;color:#0f0f1a}.rd-edu-sch{font-size:12px;color:#374151;font-weight:500}.rd-edu-meta{font-size:11px;color:#9ca3af}.rd-skills-grid{display:flex;flex-direction:column;gap:7px}.rd-skills-row{display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap}.rd-skills-cat{font-size:11px;font-weight:700;color:#374151;min-width:74px;flex-shrink:0;padding-top:3px}.rd-chips{display:flex;flex-wrap:wrap;gap:4px}.rd-chip{font-size:11px;padding:2px 8px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:4px;color:#374151}.rd-chip.inj{background:#ede9fe;border-color:#c4b5fd;color:#5b21b6}.rd-cert{font-size:12.5px;color:#374151;line-height:1.7;padding:2px 0}.kw-hl{background:rgba(99,102,241,.1)}`;
-    const fullHTML = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><title>${name} — ATS Resume</title><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/><style>${css}</style></head><body><div class="page">${body}</div></body></html>`;
-    const a = Object.assign(document.createElement('a'), {
-      href: URL.createObjectURL(new Blob([fullHTML], { type: 'text/html' })),
-      download: 'ats-resume.html'
-    });
+  function dlHTML(){
+    const body=document.getElementById('resume-preview').innerHTML,name=currentATS?.name||'Resume';
+    const css='*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}body{font-family:\'Inter\',sans-serif;background:#f5f5fa;padding:40px 20px;-webkit-font-smoothing:antialiased}.page{max-width:760px;margin:0 auto;background:#fff;padding:52px 56px;border-radius:4px;box-shadow:0 4px 24px rgba(0,0,0,.08)}.rd-name{font-size:26px;font-weight:800;letter-spacing:-.03em;color:#0f0f1a;margin-bottom:5px}.rd-contact{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:#5a5a6e;margin-bottom:22px}.rd-sec{margin-bottom:20px}.rd-sec-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#6366f1;border-bottom:1.5px solid #e8e8f0;padding-bottom:5px;margin-bottom:12px}.rd-summary{font-size:13px;color:#374151;line-height:1.75}.rd-exp{margin-bottom:14px}.rd-exp-hd{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px}.rd-exp-title{font-size:14px;font-weight:700;color:#0f0f1a}.rd-exp-co{font-size:12px;color:#374151;font-weight:500}.rd-exp-dates{font-size:11px;color:#9ca3af;text-align:right;white-space:nowrap}.rd-bullets{list-style:none;padding:0}.rd-bullets li{font-size:12.5px;color:#374151;line-height:1.65;padding:2px 0 2px 14px;position:relative}.rd-bullets li::before{content:\'•\';position:absolute;left:0;color:#6366f1}.rd-edu{margin-bottom:10px}.rd-edu-deg{font-size:13px;font-weight:700;color:#0f0f1a}.rd-edu-sch{font-size:12px;color:#374151;font-weight:500}.rd-edu-meta{font-size:11px;color:#9ca3af}.rd-skills-grid{display:flex;flex-direction:column;gap:7px}.rd-skills-row{display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap}.rd-skills-cat{font-size:11px;font-weight:700;color:#374151;min-width:74px;flex-shrink:0;padding-top:3px}.rd-chips{display:flex;flex-wrap:wrap;gap:4px}.rd-chip{font-size:11px;padding:2px 8px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:4px;color:#374151}.rd-chip.inj{background:#ede9fe;border-color:#c4b5fd;color:#5b21b6}.rd-cert{font-size:12.5px;color:#374151;line-height:1.7;padding:2px 0}.kw-hl{background:rgba(99,102,241,.1)}';
+    const fullHTML=`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><title>${name} — ATS Resume</title><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/><style>${css}</style></head><body><div class="page">${body}</div></body></html>`;
+    const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([fullHTML],{type:'text/html'})),download:'ats-resume.html'});
     a.click();
   }
 
-  /* ── Copy Text ─────────────────────────────────────────────── */
-  async function copyText(btn) {
-    try {
+  async function copyText(btn){
+    try{
       await navigator.clipboard.writeText(getPlainText());
-      const orig = btn.textContent;
-      btn.textContent = '✓ Copied!';
-      setTimeout(() => btn.textContent = orig, 2000);
-    } catch { btn.textContent = 'Copy failed'; }
+      const orig=btn.textContent;btn.textContent='✓ Copied!';
+      setTimeout(()=>btn.textContent=orig,2000);
+    }catch{btn.textContent='Copy failed';}
   }
+
+  // Mark app ready
+  performance.mark('app-ready');
+  performance.measure('app-init','app-start','app-ready');
 </script>
 </body>
 </html>
