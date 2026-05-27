@@ -504,12 +504,12 @@
       <p class="hero-sub">Upload your resume, get an ATS score, identify keyword gaps, and generate a professionally optimized version tailored to your profession — powered by advanced AI.</p>
     </div>
     <div class="upload-card">
-      <div id="drop-zone" class="drop-zone" role="button" tabindex="0" aria-label="Drop zone to upload PDF resume, or click to browse files">
+      <label id="drop-zone" class="drop-zone" for="file-input" role="button" tabindex="0" aria-label="Drop zone to upload PDF resume, or click to browse files">
         <div class="drop-icon-box" id="drop-icon" aria-hidden="true">📄</div>
         <div class="drop-title" id="drop-title">Drop your resume here</div>
         <div class="drop-sub" id="drop-sub">or click to browse · PDF only</div>
-      </div>
-      <input type="file" id="file-input" accept=".pdf" style="display:none" aria-label="Resume file input"/>
+        <input type="file" id="file-input" accept=".pdf" style="display:none" aria-label="Resume file input"/>
+      </label>
       <div class="jd-header">Job Description<span class="jd-tag">Optional</span></div>
       <textarea id="jd-input" rows="5" placeholder="Paste the job description here to unlock match scoring, targeted keyword analysis, and role-specific optimization..."></textarea>
       <button id="analyze-btn" aria-label="Analyze resume for ATS compatibility">Analyze Resume →</button>
@@ -761,8 +761,7 @@
 
   // File Handling
   const dz=document.getElementById('drop-zone'),fin=document.getElementById('file-input');
-  dz.addEventListener('click',()=>fin.click());
-  dz.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' ')fin.click();});
+  dz.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();fin.click();}});
   dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag-over');});
   dz.addEventListener('dragleave',()=>dz.classList.remove('drag-over'));
   dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag-over');setFile(e.dataTransfer.files[0]);});
